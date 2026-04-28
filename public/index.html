@@ -382,6 +382,19 @@
     <!-- Aba WhatsApp -->
     <div id="tab-whatsapp" class="tab-content ativo">
       <div class="card">
+        <h2>Controle do bot</h2>
+        <div class="checkbox-group">
+          <input type="checkbox" id="silenciarBot">
+          <label for="silenciarBot">Silenciar respostas automáticas do bot</label>
+        </div>
+        <p class="dica">
+          Quando ativado, o bot não responde conversas automaticamente. Envios agendados e envio em massa continuam separados pelo controle da aba Agendamentos.
+        </p>
+        <button class="btn btn-primary" id="salvarSilencioBot">Salvar controle do bot</button>
+        <div id="statusSilencioBot" class="bulk-status"></div>
+      </div>
+
+      <div class="card">
       <h2>📲 Conectar WhatsApp</h2>
       <div id="qr-area">
         <div class="msg status-pendente">Aguarde 1-2 minutos. O QR Code aparecerá aqui. Na primeira vez pode demorar mais.</div>
@@ -748,6 +761,12 @@
       $('useAI').checked = cfg.useAI !== false;
       $('promptSistema').value = cfg.promptSistema || '';
       $('modeloGroq').value = cfg.model || 'llama-3.1-8b-instant';
+      if ($('silenciarBot')) {
+        $('silenciarBot').checked = !!cfg.silenciarBot;
+        $('statusSilencioBot').textContent = cfg.silenciarBot
+          ? 'Bot silenciado. Respostas automáticas pausadas.'
+          : 'Bot ativo. Respostas automáticas liberadas.';
+      }
       enviosSilenciados = !!cfg.silenciarEnvios;
       if ($('silenciarEnvios')) $('silenciarEnvios').checked = enviosSilenciados;
       if ($('statusSilencioEnvios')) {
@@ -894,6 +913,20 @@
 
     $('salvarGroq').addEventListener('click', salvarTudo);
     $('salvarModelo').addEventListener('click', salvarTudo);
+    if ($('salvarSilencioBot')) {
+      $('salvarSilencioBot').addEventListener('click', async () => {
+        const silenciarBot = $('silenciarBot').checked;
+        await fetch('/api/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ silenciarBot })
+        });
+        $('statusSilencioBot').textContent = silenciarBot
+          ? 'Bot silenciado. Respostas automáticas pausadas.'
+          : 'Bot ativo. Respostas automáticas liberadas.';
+        alert('Controle do bot salvo!');
+      });
+    }
     if ($('salvarSilencioEnvios')) {
       $('salvarSilencioEnvios').addEventListener('click', async () => {
         enviosSilenciados = $('silenciarEnvios').checked;

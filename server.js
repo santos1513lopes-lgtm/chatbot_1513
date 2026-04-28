@@ -723,6 +723,7 @@ async function handleMessage(msg) {
 
     if (config.humanoAtendeu) return;
     if (silencio.estaSilenciado(chatId)) return;
+    if (config.silenciarBot) return;
 
     const MAX_IDADE_SEGUNDOS = 300;
     const agora = Math.floor(Date.now() / 1000);
