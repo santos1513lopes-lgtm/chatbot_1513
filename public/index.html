@@ -17,6 +17,10 @@
       display: grid;
       grid-template-columns: 250px 1fr;
       min-height: 100vh;
+      transition: grid-template-columns 0.2s ease;
+    }
+    .crm-layout.sidebar-collapsed {
+      grid-template-columns: 76px 1fr;
     }
     .sidebar {
       position: sticky;
@@ -33,6 +37,23 @@
       padding: 10px 10px 14px;
       border-bottom: 1px solid rgba(255,255,255,0.08);
     }
+    .brand-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .sidebar-toggle {
+      width: 34px;
+      height: 34px;
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 8px;
+      background: rgba(255,255,255,0.06);
+      color: #e2e8f0;
+      cursor: pointer;
+      font-size: 1.1rem;
+      line-height: 1;
+    }
     .brand-title {
       font-size: 1rem;
       font-weight: 800;
@@ -41,6 +62,39 @@
     .brand-subtitle {
       font-size: 0.78rem;
       color: #94a3b8;
+    }
+    .sidebar-label {
+      transition: opacity 0.15s ease;
+    }
+    .sidebar-collapsed .sidebar-label,
+    .sidebar-collapsed .brand-text,
+    .sidebar-collapsed .brand-subtitle {
+      display: none;
+    }
+    .sidebar-collapsed .sidebar {
+      padding-left: 10px;
+      padding-right: 10px;
+      align-items: stretch;
+    }
+    .sidebar-collapsed .brand {
+      padding-left: 0;
+      padding-right: 0;
+    }
+    .sidebar-collapsed .brand-row {
+      justify-content: center;
+    }
+    .sidebar-collapsed .tab-btn {
+      text-align: center;
+      padding-left: 8px;
+      padding-right: 8px;
+    }
+    .sidebar-collapsed .sidebar-footer .btn {
+      padding-left: 6px;
+      padding-right: 6px;
+      font-size: 0;
+    }
+    .sidebar-collapsed .sidebar-footer .btn::first-letter {
+      font-size: 0;
     }
     .main-content {
       padding: 22px;
@@ -279,6 +333,39 @@
       padding: 20px 10px;
       font-size: 0.92rem;
     }
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+      margin: 20px 0;
+    }
+    .metric-card {
+      background: #1e293b;
+      border: 1px solid rgba(148,163,184,0.18);
+      border-radius: 8px;
+      padding: 18px;
+      min-height: 108px;
+    }
+    .metric-label {
+      color: #94a3b8;
+      font-size: 0.84rem;
+      margin-bottom: 10px;
+    }
+    .metric-value {
+      font-size: 2rem;
+      font-weight: 800;
+      line-height: 1;
+    }
+    .metric-note {
+      color: #cbd5e1;
+      font-size: 0.82rem;
+      margin-top: 10px;
+    }
+    .dashboard-panels {
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 18px;
+    }
     .schedule-actions {
       display: flex;
       gap: 10px;
@@ -307,14 +394,46 @@
       opacity: 0.88;
       white-space: pre-wrap;
     }
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(15,23,42,0.72);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 18px;
+      z-index: 50;
+    }
+    .modal-backdrop.ativo { display: flex; }
+    .modal-card {
+      width: min(760px, 100%);
+      max-height: 90vh;
+      overflow: auto;
+      background: #1e293b;
+      border: 1px solid rgba(148,163,184,0.25);
+      border-radius: 8px;
+      padding: 22px;
+      box-shadow: 0 22px 60px rgba(0,0,0,0.35);
+    }
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .modal-header h2 { margin: 0; }
     
     @media (max-width: 600px) {
       header h1 { font-size: 1.4rem; }
       .card { padding: 16px; }
       .grid-2 { grid-template-columns: 1fr; }
+      .dashboard-grid { grid-template-columns: 1fr; }
+      .dashboard-panels { grid-template-columns: 1fr; }
     }
     @media (max-width: 820px) {
       .crm-layout { grid-template-columns: 1fr; }
+      .crm-layout.sidebar-collapsed { grid-template-columns: 1fr; }
       .sidebar {
         position: static;
         height: auto;
@@ -327,6 +446,11 @@
       }
       .tab-btn {
         min-width: max-content;
+      }
+      .sidebar-collapsed .sidebar-label,
+      .sidebar-collapsed .brand-text,
+      .sidebar-collapsed .brand-subtitle {
+        display: inline;
       }
     }
   </style>
@@ -352,18 +476,24 @@
   <div id="app-shell" class="crm-layout">
     <aside class="sidebar">
       <div class="brand">
-        <div class="brand-title">Agente IA CRM</div>
-        <div class="brand-subtitle">Desenvolvido por Josué Lopes</div>
+        <div class="brand-row">
+          <div class="brand-text">
+            <div class="brand-title">Agente IA CRM</div>
+            <div class="brand-subtitle">Desenvolvido por Josué Lopes</div>
+          </div>
+          <button class="sidebar-toggle" id="toggleSidebar" title="Recolher menu">☰</button>
+        </div>
       </div>
 
       <div class="tab-buttons">
-        <button class="tab-btn active" data-tab="whatsapp">Conectar WhatsApp</button>
-        <button class="tab-btn" data-tab="groq">Chave Groq (IA)</button>
-        <button class="tab-btn" data-tab="contatos">Contatos</button>
-        <button class="tab-btn" data-tab="agendamentos">Agendamentos</button>
-        <button class="tab-btn" data-tab="fluxos">Fluxos do Bot</button>
-        <button class="tab-btn" data-tab="condicionais">Fluxos Condicionais</button>
-        <button class="tab-btn" data-tab="modelo">Modelo e Prompt</button>
+        <button class="tab-btn active" data-tab="dashboard" title="Dashboard">📊 <span class="sidebar-label">Dashboard</span></button>
+        <button class="tab-btn" data-tab="whatsapp" title="Conectar WhatsApp">📲 <span class="sidebar-label">Conectar WhatsApp</span></button>
+        <button class="tab-btn" data-tab="groq" title="Chave Groq (IA)">🔑 <span class="sidebar-label">Chave Groq (IA)</span></button>
+        <button class="tab-btn" data-tab="contatos" title="Contatos">👥 <span class="sidebar-label">Contatos</span></button>
+        <button class="tab-btn" data-tab="agendamentos" title="Campanhas e Envios">🗓️ <span class="sidebar-label">Campanhas e Envios</span></button>
+        <button class="tab-btn" data-tab="fluxos" title="Fluxos do Bot">📋 <span class="sidebar-label">Fluxos do Bot</span></button>
+        <button class="tab-btn" data-tab="condicionais" title="Fluxos Condicionais">🔀 <span class="sidebar-label">Fluxos Condicionais</span></button>
+        <button class="tab-btn" data-tab="modelo" title="Modelo e Prompt">⚙️ <span class="sidebar-label">Modelo e Prompt</span></button>
       </div>
 
       <div class="sidebar-footer">
@@ -379,8 +509,71 @@
           <p>Gerencie contatos, agendamentos, fluxos e IA em um painel único.</p>
         </header>
 
+    <!-- Aba Dashboard -->
+    <div id="tab-dashboard" class="tab-content ativo">
+      <div class="dashboard-grid">
+        <div class="metric-card">
+          <div class="metric-label">Contatos</div>
+          <div class="metric-value" id="dashContatos">0</div>
+          <div class="metric-note">cadastrados no CRM</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Campanhas pendentes</div>
+          <div class="metric-value" id="dashPendentes">0</div>
+          <div class="metric-note">aguardando envio</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Envios realizados</div>
+          <div class="metric-value" id="dashEnviados">0</div>
+          <div class="metric-note">registrados no histórico</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Falhas</div>
+          <div class="metric-value" id="dashErros">0</div>
+          <div class="metric-note">envios com erro</div>
+        </div>
+      </div>
+
+      <div class="dashboard-panels">
+        <div class="card">
+          <h2>Status operacional</h2>
+          <div class="contact-item">
+            <div class="contact-header">
+              <div>
+                <div class="contact-name">WhatsApp</div>
+                <div class="contact-phone" id="dashWhatsapp">Aguardando conexão</div>
+              </div>
+            </div>
+          </div>
+          <div class="contact-item">
+            <div class="contact-header">
+              <div>
+                <div class="contact-name">Respostas automáticas</div>
+                <div class="contact-phone" id="dashBot">Bot ativo</div>
+              </div>
+            </div>
+          </div>
+          <div class="contact-item">
+            <div class="contact-header">
+              <div>
+                <div class="contact-name">Fluxo de envios</div>
+                <div class="contact-phone" id="dashEnvios">Envios ativos</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Próximos passos</h2>
+          <div class="contact-meta">
+            Use a aba Contatos para importar sua planilha, Campanhas e Envios para disparos e Fluxos Condicionais para entregar materiais por nome, matrícula ou telefone.
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Aba WhatsApp -->
-    <div id="tab-whatsapp" class="tab-content ativo">
+    <div id="tab-whatsapp" class="tab-content">
       <div class="card">
         <h2>Controle do bot</h2>
         <div class="checkbox-group">
@@ -478,7 +671,7 @@
       </div>
     </div>
 
-    <!-- Aba Agendamentos -->
+    <!-- Aba Campanhas e Envios -->
     <div id="tab-agendamentos" class="tab-content">
       <div class="card">
         <h2>Controle de envios</h2>
@@ -494,7 +687,7 @@
       </div>
 
       <div class="card">
-        <h2>🗓️ Agendamento de envios</h2>
+        <h2>🗓️ Campanhas e Envios</h2>
         <div class="grid-2">
           <div class="form-group">
             <label for="agContato">Contato</label>
@@ -510,6 +703,14 @@
         <div class="form-group">
           <label for="agMensagem">Mensagem</label>
           <textarea id="agMensagem" placeholder="Segue o material em anexo."></textarea>
+        </div>
+        <div class="form-group">
+          <label for="agMensagemFinal">Mensagem de finalização opcional</label>
+          <textarea id="agMensagemFinal" placeholder="Qualquer dúvida, responda esta mensagem e um atendente irá ajudar."></textarea>
+        </div>
+        <div class="form-group">
+          <label for="agDelayBlocos">Delay entre mensagem, arquivo e finalização (segundos)</label>
+          <input type="number" id="agDelayBlocos" min="0" max="120" value="3">
         </div>
         <div class="form-group">
           <label for="agArquivo">Arquivo opcional</label>
@@ -601,6 +802,7 @@
           <label for="condDadosCsv">Lista CSV ou nomes separados por vírgula</label>
           <textarea id="condDadosCsv" style="min-height:170px;" placeholder="nome,matricula,material,link,senha,pix,arquivo&#10;João Nascimento,12345,Apostila,https://link.com,Senha: 1234,,apostila.pdf&#10;&#10;Ou simples: Ana Lopes, Josué Lopes, João Nascimento"></textarea>
         </div>
+        <button class="btn btn-success" id="abrirCondItem" style="margin-bottom:14px;">Adicionar aluno/material por formulário</button>
         <div class="form-group">
           <label for="condArquivoUpload">Enviar arquivo do fluxo</label>
           <input type="file" id="condArquivoUpload" accept="image/*,audio/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip,.jwpub">
@@ -608,6 +810,63 @@
         <button class="btn btn-success" id="enviarArquivoFluxo" style="margin-bottom:14px;">Enviar arquivo para fluxos</button>
         <div id="listaArquivosFluxo" class="bulk-status"></div>
         <button class="btn btn-primary" id="salvarCondicional">Salvar fluxo condicional</button>
+      </div>
+    </div>
+
+    <div class="modal-backdrop" id="condItemModal">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h2>Adicionar aluno/material</h2>
+          <button class="btn btn-small" id="fecharCondItem" style="background:#475569; color:white;">Fechar</button>
+        </div>
+        <div class="grid-2">
+          <div class="form-group">
+            <label for="condItemNome">Nome</label>
+            <input type="text" id="condItemNome" placeholder="Ana Lopes">
+          </div>
+          <div class="form-group">
+            <label for="condItemMatricula">Matrícula opcional</label>
+            <input type="text" id="condItemMatricula" placeholder="12345">
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="form-group">
+            <label for="condItemTelefone">Telefone opcional</label>
+            <input type="text" id="condItemTelefone" placeholder="557185279135">
+          </div>
+          <div class="form-group">
+            <label for="condItemMaterial">Material</label>
+            <input type="text" id="condItemMaterial" placeholder="Apostila Turma A">
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="condItemLink">Link opcional</label>
+          <input type="url" id="condItemLink" placeholder="https://drive.google.com/...">
+        </div>
+        <div class="grid-2">
+          <div class="form-group">
+            <label for="condItemSenha">Senha opcional</label>
+            <input type="text" id="condItemSenha" placeholder="Senha: 1234">
+          </div>
+          <div class="form-group">
+            <label for="condItemPix">Pix opcional</label>
+            <input type="text" id="condItemPix" placeholder="chave pix ou copia e cola">
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="condItemArquivo">Arquivo opcional</label>
+          <select id="condItemArquivo">
+            <option value="">Sem arquivo</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="condItemMensagemFinal">Mensagem final opcional</label>
+          <textarea id="condItemMensagemFinal" placeholder="Qualquer dúvida, fale com um instrutor."></textarea>
+        </div>
+        <div class="schedule-actions">
+          <button class="btn btn-primary" id="adicionarCondItem">Adicionar na lista CSV</button>
+          <button class="btn btn-small" id="limparCondItem" style="background:#475569; color:white;">Limpar formulário</button>
+        </div>
       </div>
     </div>
 
@@ -670,6 +929,23 @@
   <script>
     const socket = io();
     const $ = id => document.getElementById(id);
+    const appShell = $('app-shell');
+    const toggleSidebar = $('toggleSidebar');
+    window.dashboardState = {
+      whatsappConectado: false,
+      contatos: 0,
+      pendentes: 0,
+      enviados: 0,
+      erros: 0,
+      botSilenciado: false,
+      enviosSilenciados: false
+    };
+
+    if (toggleSidebar && appShell) {
+      toggleSidebar.addEventListener('click', () => {
+        appShell.classList.toggle('sidebar-collapsed');
+      });
+    }
 
     // Tabs
     document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -701,6 +977,8 @@
       }
     });
     socket.on('status', (s) => {
+      window.dashboardState.whatsappConectado = !!s.conectado;
+      window.atualizarDashboard();
       const area = $('qr-area');
       const btnDesconectar = $('btnDesconectar');
       if (s.conectado) {
@@ -766,14 +1044,17 @@
         $('statusSilencioBot').textContent = cfg.silenciarBot
           ? 'Bot silenciado. Respostas automáticas pausadas.'
           : 'Bot ativo. Respostas automáticas liberadas.';
+        window.dashboardState.botSilenciado = !!cfg.silenciarBot;
       }
-      enviosSilenciados = !!cfg.silenciarEnvios;
-      if ($('silenciarEnvios')) $('silenciarEnvios').checked = enviosSilenciados;
+      window.enviosSilenciados = !!cfg.silenciarEnvios;
+      window.dashboardState.enviosSilenciados = window.enviosSilenciados;
+      if ($('silenciarEnvios')) $('silenciarEnvios').checked = window.enviosSilenciados;
       if ($('statusSilencioEnvios')) {
-        $('statusSilencioEnvios').textContent = enviosSilenciados
+        $('statusSilencioEnvios').textContent = window.enviosSilenciados
           ? 'Fluxo de envios silenciado. Nenhum disparo será enviado.'
           : 'Fluxo de envios ativo.';
       }
+      window.atualizarDashboard();
       const handoff = cfg.handoff || {};
       $('handoffAtivo').checked = handoff.ativo !== false;
       $('handoffNumero').value = handoff.numeroAtendente || '557185279135';
@@ -809,6 +1090,86 @@
       $('condDadosCsv').value = flow.dadosCsv || '';
     }
 
+    const condCsvHeaders = ['nome', 'matricula', 'telefone', 'material', 'link', 'senha', 'pix', 'arquivo', 'mensagemFinal'];
+
+    function csvEscape(value) {
+      const text = String(value || '').trim();
+      if (/[",\n\r]/.test(text)) {
+        return `"${text.replace(/"/g, '""')}"`;
+      }
+      return text;
+    }
+
+    function normalizarCsvCondicionalAtual() {
+      const atual = $('condDadosCsv').value.trim();
+      const header = condCsvHeaders.join(',');
+      if (!atual) {
+        $('condDadosCsv').value = header;
+        return;
+      }
+      const primeiraLinha = atual.split(/\r?\n/)[0].trim().toLowerCase();
+      if (primeiraLinha !== header.toLowerCase()) {
+        $('condDadosCsv').value = `${header}\n${atual}`;
+      }
+    }
+
+    function limparFormularioCondItem() {
+      ['condItemNome', 'condItemMatricula', 'condItemTelefone', 'condItemMaterial', 'condItemLink', 'condItemSenha', 'condItemPix', 'condItemMensagemFinal'].forEach(id => {
+        const el = $(id);
+        if (el) el.value = '';
+      });
+      if ($('condItemArquivo')) $('condItemArquivo').value = '';
+    }
+
+    function abrirModalCondItem() {
+      normalizarCsvCondicionalAtual();
+      $('condItemModal').classList.add('ativo');
+    }
+
+    function fecharModalCondItem() {
+      $('condItemModal').classList.remove('ativo');
+    }
+
+    function adicionarItemCondicional() {
+      const nome = $('condItemNome').value.trim();
+      if (!nome) {
+        alert('Informe o nome.');
+        return;
+      }
+      normalizarCsvCondicionalAtual();
+      const values = [
+        nome,
+        $('condItemMatricula').value,
+        $('condItemTelefone').value,
+        $('condItemMaterial').value,
+        $('condItemLink').value,
+        $('condItemSenha').value,
+        $('condItemPix').value,
+        $('condItemArquivo').value,
+        $('condItemMensagemFinal').value
+      ];
+      const line = values.map(csvEscape).join(',');
+      $('condDadosCsv').value = `${$('condDadosCsv').value.trim()}\n${line}`;
+      limparFormularioCondItem();
+      alert('Aluno/material adicionado na lista CSV.');
+    }
+
+    function setTextIfExists(id, value) {
+      const el = $(id);
+      if (el) el.textContent = value;
+    }
+
+    window.atualizarDashboard = function atualizarDashboard() {
+      const state = window.dashboardState || {};
+      setTextIfExists('dashContatos', state.contatos || 0);
+      setTextIfExists('dashPendentes', state.pendentes || 0);
+      setTextIfExists('dashEnviados', state.enviados || 0);
+      setTextIfExists('dashErros', state.erros || 0);
+      setTextIfExists('dashWhatsapp', state.whatsappConectado ? 'Conectado' : 'Aguardando conexão');
+      setTextIfExists('dashBot', state.botSilenciado ? 'Bot silenciado' : 'Bot ativo');
+      setTextIfExists('dashEnvios', state.enviosSilenciados ? 'Envios silenciados' : 'Envios ativos');
+    };
+
     async function carregarArquivosFluxo() {
       const div = $('listaArquivosFluxo');
       if (!div) return;
@@ -817,7 +1178,13 @@
         const json = await r.json();
         if (!json.ok || !json.arquivos.length) {
           div.textContent = 'Nenhum arquivo disponível em uploads/fluxos.';
+          if ($('condItemArquivo')) $('condItemArquivo').innerHTML = '<option value="">Sem arquivo</option>';
           return;
+        }
+        if ($('condItemArquivo')) {
+          $('condItemArquivo').innerHTML = '<option value="">Sem arquivo</option>' + json.arquivos.map(file => {
+            return `<option value="${escapeHtml(file.nome)}">${escapeHtml(file.nome)}</option>`;
+          }).join('');
         }
         div.innerHTML = 'Arquivos disponíveis:<br>' + json.arquivos.map(file => {
           return `• <strong>${escapeHtml(file.nome)}</strong>`;
@@ -913,6 +1280,15 @@
 
     $('salvarGroq').addEventListener('click', salvarTudo);
     $('salvarModelo').addEventListener('click', salvarTudo);
+    if ($('abrirCondItem')) $('abrirCondItem').addEventListener('click', abrirModalCondItem);
+    if ($('fecharCondItem')) $('fecharCondItem').addEventListener('click', fecharModalCondItem);
+    if ($('limparCondItem')) $('limparCondItem').addEventListener('click', limparFormularioCondItem);
+    if ($('adicionarCondItem')) $('adicionarCondItem').addEventListener('click', adicionarItemCondicional);
+    if ($('condItemModal')) {
+      $('condItemModal').addEventListener('click', (event) => {
+        if (event.target.id === 'condItemModal') fecharModalCondItem();
+      });
+    }
     if ($('salvarSilencioBot')) {
       $('salvarSilencioBot').addEventListener('click', async () => {
         const silenciarBot = $('silenciarBot').checked;
@@ -924,20 +1300,24 @@
         $('statusSilencioBot').textContent = silenciarBot
           ? 'Bot silenciado. Respostas automáticas pausadas.'
           : 'Bot ativo. Respostas automáticas liberadas.';
+        window.dashboardState.botSilenciado = silenciarBot;
+        window.atualizarDashboard();
         alert('Controle do bot salvo!');
       });
     }
     if ($('salvarSilencioEnvios')) {
       $('salvarSilencioEnvios').addEventListener('click', async () => {
-        enviosSilenciados = $('silenciarEnvios').checked;
+        window.enviosSilenciados = $('silenciarEnvios').checked;
         await fetch('/api/config', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ silenciarEnvios: enviosSilenciados })
+          body: JSON.stringify({ silenciarEnvios: window.enviosSilenciados })
         });
-        $('statusSilencioEnvios').textContent = enviosSilenciados
+        $('statusSilencioEnvios').textContent = window.enviosSilenciados
           ? 'Fluxo de envios silenciado. Nenhum disparo será enviado.'
           : 'Fluxo de envios ativo.';
+        window.dashboardState.enviosSilenciados = window.enviosSilenciados;
+        window.atualizarDashboard();
         alert('Controle de envios salvo!');
       });
     }
@@ -1104,6 +1484,8 @@
     const agContato = document.getElementById("agContato");
     const agDataHora = document.getElementById("agDataHora");
     const agMensagem = document.getElementById("agMensagem");
+    const agMensagemFinal = document.getElementById("agMensagemFinal");
+    const agDelayBlocos = document.getElementById("agDelayBlocos");
     const agArquivo = document.getElementById("agArquivo");
     const silenciarEnvios = document.getElementById("silenciarEnvios");
     const salvarSilencioEnvios = document.getElementById("salvarSilencioEnvios");
@@ -1124,7 +1506,11 @@
     let contatosCache = [];
     let agendamentosCache = [];
     let processandoAgendados = false;
-    let enviosSilenciados = false;
+    let enviosSilenciados = !!window.enviosSilenciados;
+
+    function enviosEstaoSilenciados() {
+      return !!(enviosSilenciados || window.enviosSilenciados || window.dashboardState?.enviosSilenciados);
+    }
 
     function mostrarErro(mensagem) {
       loginErro.textContent = mensagem;
@@ -1176,6 +1562,8 @@
       agContato.value = "";
       agDataHora.value = "";
       agMensagem.value = "";
+      agMensagemFinal.value = "";
+      agDelayBlocos.value = "3";
       agArquivo.value = "";
     }
 
@@ -1268,6 +1656,8 @@
       snapshot.forEach((item) => contatos.push({ id: item.id, ...item.data() }));
       contatos.sort((a, b) => (a.nome || "").localeCompare(b.nome || "", "pt-BR"));
       contatosCache = contatos;
+      window.dashboardState.contatos = contatosCache.length;
+      window.atualizarDashboard();
       renderOpcoesContatos();
 
       if (!contatos.length) {
@@ -1322,6 +1712,9 @@
       if (cancelarEscutaContatos) cancelarEscutaContatos();
       if (!user) {
         listaContatos.innerHTML = `<div class="empty-state">Entre no painel para carregar seus contatos.</div>`;
+        contatosCache = [];
+        window.dashboardState.contatos = 0;
+        window.atualizarDashboard();
         return;
       }
       const contatosQuery = query(collection(db, "contatos"), where("uid", "==", user.uid));
@@ -1426,10 +1819,12 @@
       const contato = getContatoSelecionado();
       const temArquivo = !!(agArquivo.files && agArquivo.files[0]);
       const mensagem = agMensagem.value.trim() || (temArquivo ? MENSAGEM_PADRAO_ANEXO : "");
+      const mensagemFinal = agMensagemFinal.value.trim();
+      const delayBlocos = Math.max(0, Math.min(120, Number(agDelayBlocos.value) || 0));
       const dataHora = agDataHora.value;
       if (!contato) throw new Error("Selecione um contato.");
-      if (!mensagem && !temArquivo) {
-        throw new Error("Informe uma mensagem ou escolha um arquivo.");
+      if (!mensagem && !temArquivo && !mensagemFinal) {
+        throw new Error("Informe uma mensagem, finalização ou escolha um arquivo.");
       }
       if (exigirData && !dataHora) throw new Error("Informe a data e hora do agendamento.");
       const arquivo = await salvarArquivoAgendamento();
@@ -1439,6 +1834,8 @@
         contatoNome: contato.nome || "",
         telefone: contato.telefone || "",
         mensagem,
+        mensagemFinal,
+        delayBlocos,
         arquivo,
         dataHora: dataHora ? Timestamp.fromDate(new Date(dataHora)) : null,
         status: exigirData ? "pendente" : "enviado",
@@ -1460,6 +1857,8 @@
         body: JSON.stringify({
           telefone: agendamento.telefone,
           mensagem: agendamento.mensagem,
+          mensagemFinal: agendamento.mensagemFinal || "",
+          delayBlocos: agendamento.delayBlocos || 0,
           arquivo: agendamento.arquivo || null
         })
       });
@@ -1483,7 +1882,7 @@
     }
 
     async function enviarMensagemAgora() {
-      if (enviosSilenciados) {
+      if (enviosEstaoSilenciados()) {
         alert("O fluxo de envios está silenciado.");
         return;
       }
@@ -1520,6 +1919,10 @@
         return dbb - da;
       });
       agendamentosCache = agendamentos;
+      window.dashboardState.pendentes = agendamentos.filter(item => item.status === "pendente").length;
+      window.dashboardState.enviados = agendamentos.filter(item => item.status === "enviado").length;
+      window.dashboardState.erros = agendamentos.filter(item => item.status === "erro").length;
+      window.atualizarDashboard();
 
       if (!agendamentos.length) {
         listaAgendamentos.innerHTML = `<div class="empty-state">Nenhum agendamento cadastrado ainda.</div>`;
@@ -1529,6 +1932,7 @@
       listaAgendamentos.innerHTML = agendamentos.map((item) => {
         const arquivo = item.arquivo ? `<div class="contact-meta">Arquivo: ${escapeText(item.arquivo.nomeOriginal)}</div>` : "";
         const mensagem = item.mensagem ? `<div class="contact-meta">${escapeText(item.mensagem)}</div>` : "";
+        const finalizacao = item.mensagemFinal ? `<div class="contact-meta">Finalização: ${escapeText(item.mensagemFinal)}</div>` : "";
         return `
           <div class="contact-item">
             <div class="contact-header">
@@ -1544,6 +1948,7 @@
             <div class="contact-meta">Data: ${escapeText(formatarData(item.dataHora))}</div>
             ${mensagem}
             ${arquivo}
+            ${finalizacao}
           </div>
         `;
       }).join("");
@@ -1553,6 +1958,11 @@
       if (cancelarEscutaAgendamentos) cancelarEscutaAgendamentos();
       if (!user) {
         listaAgendamentos.innerHTML = `<div class="empty-state">Entre no painel para carregar seus agendamentos.</div>`;
+        agendamentosCache = [];
+        window.dashboardState.pendentes = 0;
+        window.dashboardState.enviados = 0;
+        window.dashboardState.erros = 0;
+        window.atualizarDashboard();
         return;
       }
       const agendamentosQuery = query(collection(db, "agendamentos"), where("uid", "==", user.uid));
@@ -1562,7 +1972,7 @@
     }
 
     async function enviarAgendamentoSalvo(id) {
-      if (enviosSilenciados) {
+      if (enviosEstaoSilenciados()) {
         throw new Error("O fluxo de envios está silenciado.");
       }
       const item = agendamentosCache.find((agendamento) => agendamento.id === id);
@@ -1589,7 +1999,7 @@
     }
 
     async function processarAgendadosVencidos() {
-      if (enviosSilenciados) return;
+      if (enviosEstaoSilenciados()) return;
       if (processandoAgendados || !usuarioAtual) return;
       processandoAgendados = true;
       try {
@@ -1619,6 +2029,8 @@
       const contatosSelecionados = contatosCache.filter((contato) => idsSelecionados.includes(contato.id)).slice(0, limite);
       const temArquivo = !!(agArquivo.files && agArquivo.files[0]);
       const mensagem = agMensagem.value.trim() || (temArquivo ? MENSAGEM_PADRAO_ANEXO : "");
+      const mensagemFinal = agMensagemFinal.value.trim();
+      const delayBlocos = Math.max(0, Math.min(120, Number(agDelayBlocos.value) || 0));
       const dataHora = agDataHora.value;
 
       if (!contatosSelecionados.length) {
@@ -1629,8 +2041,8 @@
         alert("Informe a data e hora do agendamento.");
         return;
       }
-      if (!mensagem && !temArquivo) {
-        alert("Informe uma mensagem ou escolha um arquivo.");
+      if (!mensagem && !temArquivo && !mensagemFinal) {
+        alert("Informe uma mensagem, finalização ou escolha um arquivo.");
         return;
       }
       if (!confirm(`Criar agendamento para ${contatosSelecionados.length} contato(s)?`)) return;
@@ -1649,6 +2061,8 @@
             contatoNome: contato.nome || "",
             telefone: contato.telefone || "",
             mensagem,
+            mensagemFinal,
+            delayBlocos,
             arquivo,
             dataHora: dataTimestamp,
             status: "pendente",
@@ -1666,7 +2080,7 @@
       }
     });
     enviarMassa.addEventListener("click", async () => {
-      if (enviosSilenciados) {
+      if (enviosEstaoSilenciados()) {
         alert("O fluxo de envios está silenciado.");
         return;
       }
@@ -1680,13 +2094,15 @@
       const contatosSelecionados = contatosCache.filter((contato) => idsSelecionados.includes(contato.id)).slice(0, limite);
       const temArquivo = !!(agArquivo.files && agArquivo.files[0]);
       const mensagem = agMensagem.value.trim() || (temArquivo ? MENSAGEM_PADRAO_ANEXO : "");
+      const mensagemFinal = agMensagemFinal.value.trim();
+      const delayBlocos = Math.max(0, Math.min(120, Number(agDelayBlocos.value) || 0));
 
       if (!contatosSelecionados.length) {
         alert("Selecione pelo menos um contato.");
         return;
       }
-      if (!mensagem && !temArquivo) {
-        alert("Informe uma mensagem ou escolha um arquivo.");
+      if (!mensagem && !temArquivo && !mensagemFinal) {
+        alert("Informe uma mensagem, finalização ou escolha um arquivo.");
         return;
       }
       if (!confirm(`Enviar para ${contatosSelecionados.length} contato(s) com intervalo de ${intervalo} segundos?`)) return;
@@ -1704,6 +2120,8 @@
             contatoNome: contato.nome || "",
             telefone: contato.telefone || "",
             mensagem,
+            mensagemFinal,
+            delayBlocos,
             arquivo,
             dataHora: null,
             status: "enviado",

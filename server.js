@@ -20,6 +20,7 @@ const silencio = createSilencio(__dirname);
 // =====================================
 const PORT = 3000;
 const CONFIG_FILE = path.join(__dirname, "config.json");
+const SKIP_WHATSAPP = process.env.SKIP_WHATSAPP === "1";
 
 let groqClient = null;
 let whatsappClient = null;
@@ -511,29 +512,13 @@ app.post("/api/whatsapp/send", async (req, res) => {
     }
     const telefone = String(req.body.telefone || "").replace(/\D/g, "");
     const mensagem = String(req.body.mensagem || "").trim();
+    const mensagemFinal = String(req.body.mensagemFinal || "").trim();
+    const delayBlocos = req.body.delayBlocos;
     const arquivo = req.body.arquivo || null;
     if (!telefone) return res.status(400).json({ ok: false, erro: "Telefone obrigatório" });
-    if (!mensagem && !arquivo) return res.status(400).json({ ok: false, erro: "Mensagem ou arquivo obrigatório" });
+    if (!mensagem && !arquivo && !mensagemFinal) return res.status(400).json({ ok: false, erro: "Mensagem, finalização ou arquivo obrigatório" });
 
-    const chatId = `${telefone}@c.us`;
-    let sentMsg = null;
-
-    if (arquivo && arquivo.caminho) {
-      const fullPath = resolveUploadPath(arquivo.caminho);
-      if (!fullPath || !fs.existsSync(fullPath)) {
-        return res.status(400).json({ ok: false, erro: "Arquivo não encontrado" });
-      }
-      const media = new MessageMedia(
-        arquivo.tipo || "application/octet-stream",
-        fs.readFileSync(fullPath).toString("base64"),
-        arquivo.nomeOriginal || path.basename(fullPath)
-      );
-      sentMsg = await whatsappClient.sendMessage(chatId, media, mensagem ? { caption: mensagem } : undefined);
-    } else {
-      sentMsg = await whatsappClient.sendMessage(chatId, mensagem);
-    }
-
-    silencio.registrarMensagemDoBot(sentMsg);
+    await enviarSequenciaWhatsApp({ telefone, mensagem, arquivo, mensagemFinal, delayBlocos });
     res.json({ ok: true });
   } catch (e) {
     console.error("Erro ao enviar WhatsApp:", e);
@@ -667,6 +652,38 @@ function initWhatsApp(force = false) {
 // =====================================
 const delay = (ms) => new Promise((r) => setTimeout(r, ms));
 
+async function enviarSequenciaWhatsApp({ telefone, mensagem, arquivo, mensagemFinal, delayBlocos }) {
+  const chatId = `${telefone}@c.us`;
+  const intervaloMs = Math.max(0, Math.min(120, Number(delayBlocos) || 0)) * 1000;
+  let sentMsg = null;
+
+  if (arquivo && arquivo.caminho) {
+    const fullPath = resolveUploadPath(arquivo.caminho);
+    if (!fullPath || !fs.existsSync(fullPath)) {
+      throw new Error("Arquivo não encontrado");
+    }
+    const media = new MessageMedia(
+      arquivo.tipo || "application/octet-stream",
+      fs.readFileSync(fullPath).toString("base64"),
+      arquivo.nomeOriginal || path.basename(fullPath)
+    );
+    sentMsg = await whatsappClient.sendMessage(chatId, media, mensagem ? { caption: mensagem } : undefined);
+  } else if (mensagem) {
+    sentMsg = await whatsappClient.sendMessage(chatId, mensagem);
+  }
+
+  if (sentMsg) silencio.registrarMensagemDoBot(sentMsg);
+
+  if (mensagemFinal) {
+    if (sentMsg && intervaloMs > 0) await delay(intervaloMs);
+    const finalMsg = await whatsappClient.sendMessage(chatId, mensagemFinal);
+    silencio.registrarMensagemDoBot(finalMsg);
+    sentMsg = finalMsg;
+  }
+
+  return sentMsg;
+}
+
 async function respostaPorFluxo(texto) {
   config = loadConfig();
   const txt = texto.trim().toLowerCase();
@@ -776,18 +793,24 @@ async function handleMessage(msg) {
           const resposta = formatTemplate(flow.respostaEncontrado, row)
             .replace(/\n{3,}/g, "\n\n")
             .trim();
-          const arquivo = row.arquivo || row.anexo || row.caminho;
-          const fullPath = resolveKnownUploadFile(arquivo);
-          await typing();
-          let r = null;
-          if (fullPath) {
-            const media = MessageMedia.fromFilePath(fullPath);
-            r = await whatsappClient.sendMessage(chatId, media, resposta ? { caption: resposta } : undefined);
-          } else {
-            r = await msg.reply(resposta || "Encontrei seu cadastro.");
-          }
-          silencio.registrarMensagemDoBot(r);
-          return;
+      const arquivo = row.arquivo || row.anexo || row.caminho;
+      const mensagemFinal = row.mensagemfinal || row.mensagem_final || "";
+      const fullPath = resolveKnownUploadFile(arquivo);
+      await typing();
+      let r = null;
+      if (fullPath) {
+        const media = MessageMedia.fromFilePath(fullPath);
+        r = await whatsappClient.sendMessage(chatId, media, resposta ? { caption: resposta } : undefined);
+      } else {
+        r = await msg.reply(resposta || "Encontrei seu cadastro.");
+      }
+      silencio.registrarMensagemDoBot(r);
+      if (mensagemFinal) {
+        await delay(1000);
+        const finalMsg = await whatsappClient.sendMessage(chatId, mensagemFinal);
+        silencio.registrarMensagemDoBot(finalMsg);
+      }
+      return;
         }
 
         const tentativas = (estadoAtual.tentativas || 0) + 1;
@@ -871,5 +894,10 @@ io.on("connection", (socket) => {
 ╚══════════════════════════════════════════════════════════╝
   `);
   io.emit("qr", "loading");
-  initWhatsApp();
+  if (SKIP_WHATSAPP) {
+    console.log("WhatsApp não iniciado porque SKIP_WHATSAPP=1.");
+    io.emit("status", { conectado: false, mensagem: "Modo local: WhatsApp não iniciado" });
+  } else {
+    initWhatsApp();
+  }
 });
