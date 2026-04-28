@@ -1,0 +1,1676 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agente IA + Chatbot WhatsApp</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #0f172a;
+      min-height: 100vh;
+      color: #eee;
+    }
+    .container { max-width: 1180px; margin: 0 auto; }
+    .crm-layout {
+      display: grid;
+      grid-template-columns: 250px 1fr;
+      min-height: 100vh;
+    }
+    .sidebar {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      background: #111827;
+      border-right: 1px solid rgba(255,255,255,0.08);
+      padding: 18px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+    .brand {
+      padding: 10px 10px 14px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+    .brand-title {
+      font-size: 1rem;
+      font-weight: 800;
+      margin-bottom: 4px;
+    }
+    .brand-subtitle {
+      font-size: 0.78rem;
+      color: #94a3b8;
+    }
+    .main-content {
+      padding: 22px;
+      overflow: hidden;
+    }
+    
+    header {
+      padding: 8px 0 20px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      margin-bottom: 20px;
+    }
+    header h1 { font-size: 1.8rem; margin-bottom: 8px; }
+    header p { opacity: 0.8; font-size: 0.95rem; }
+    
+    .card {
+      background: #1e293b;
+      border-radius: 8px;
+      padding: 24px;
+      margin: 20px 0;
+      border: 1px solid rgba(148,163,184,0.18);
+    }
+    .card h2 {
+      font-size: 1.1rem;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    #qr-area {
+      text-align: center;
+      padding: 30px;
+      min-height: 200px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    #qr-area img { max-width: 280px; border-radius: 12px; }
+    #qr-area .msg { margin-top: 16px; font-size: 1rem; opacity: 0.9; }
+    #qr-area .status-ok { color: #4ade80; }
+    #qr-area .status-pendente { color: #fbbf24; }
+    
+    .form-group {
+      margin-bottom: 16px;
+    }
+    .form-group label {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 0.9rem;
+      opacity: 0.9;
+    }
+    .form-group input, .form-group textarea, .form-group select {
+      width: 100%;
+      padding: 10px 14px;
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 8px;
+      background: rgba(0,0,0,0.3);
+      color: #fff;
+      font-size: 0.95rem;
+    }
+    .form-group select { cursor: pointer; }
+    .form-group textarea { min-height: 80px; resize: vertical; }
+    .form-group input::placeholder, .form-group textarea::placeholder { color: #888; }
+    
+    .btn {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      cursor: pointer;
+      font-weight: 600;
+      transition: opacity 0.2s;
+    }
+    .btn:hover { opacity: 0.9; }
+    .btn-primary { background: #3b82f6; color: white; }
+    .btn-success { background: #22c55e; color: white; }
+    .btn-small { padding: 6px 12px; font-size: 0.85rem; }
+    
+    .checkbox-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .checkbox-group input[type="checkbox"] { width: auto; }
+    
+    .flow-item {
+      background: rgba(0,0,0,0.2);
+      border-radius: 8px;
+      padding: 14px;
+      margin-bottom: 12px;
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+    .flow-item .flow-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .flow-item .flow-palavras { font-size: 0.85rem; opacity: 0.85; margin-bottom: 8px; }
+    .flow-item .flow-resposta { font-size: 0.9rem; white-space: pre-wrap; }
+    
+    .tab-buttons {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .tab-btn {
+      width: 100%;
+      text-align: left;
+      padding: 11px 12px;
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      color: #cbd5e1;
+      cursor: pointer;
+      font-size: 0.92rem;
+    }
+    .tab-btn.active {
+      background: #2563eb;
+      border-color: #3b82f6;
+      color: #fff;
+    }
+    .tab-btn:hover:not(.active) { background: rgba(255,255,255,0.06); }
+    
+    .tab-content { display: none; }
+    .tab-content.ativo { display: block; }
+    
+    .dica {
+      background: rgba(59, 130, 246, 0.15);
+      border-left: 4px solid #3b82f6;
+      padding: 12px 16px;
+      border-radius: 0 8px 8px 0;
+      margin: 16px 0;
+      font-size: 0.9rem;
+    }
+    
+    .link-groq {
+      color: #60a5fa;
+      text-decoration: none;
+    }
+    .link-groq:hover { text-decoration: underline; }
+    .link-footer {
+      color: #60a5fa;
+      text-decoration: none;
+    }
+    .link-footer:hover { text-decoration: underline; }
+    .qr-loading { animation: pulse 1.5s ease-in-out infinite; }
+    @keyframes pulse { 50% { opacity: 0.6; } }
+
+    body:not(.authenticated) #app-shell { display: none; }
+    body.authenticated #login-screen { display: none; }
+
+    .login-screen {
+      min-height: calc(100vh - 40px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .login-card {
+      width: 100%;
+      max-width: 380px;
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 12px;
+      padding: 28px;
+    }
+    .login-card h1 {
+      font-size: 1.4rem;
+      margin-bottom: 8px;
+    }
+    .login-card p {
+      font-size: 0.9rem;
+      opacity: 0.78;
+      margin-bottom: 20px;
+    }
+    .login-error {
+      display: none;
+      margin: 12px 0;
+      padding: 10px 12px;
+      border-radius: 8px;
+      background: rgba(220, 38, 38, 0.18);
+      border: 1px solid rgba(248, 113, 113, 0.35);
+      color: #fecaca;
+      font-size: 0.85rem;
+    }
+    .login-error.ativo { display: block; }
+    .top-actions {
+      display: flex;
+      justify-content: flex-end;
+      margin-bottom: 12px;
+    }
+    .sidebar-footer {
+      margin-top: auto;
+      display: grid;
+      gap: 10px;
+      padding-top: 14px;
+      border-top: 1px solid rgba(255,255,255,0.08);
+    }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .contact-item {
+      background: rgba(0,0,0,0.2);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 8px;
+      padding: 14px;
+      margin-bottom: 10px;
+    }
+    .contact-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+    .contact-name {
+      font-weight: 700;
+      margin-bottom: 3px;
+    }
+    .contact-phone {
+      color: #93c5fd;
+      font-size: 0.9rem;
+    }
+    .contact-meta {
+      opacity: 0.82;
+      font-size: 0.86rem;
+      white-space: pre-wrap;
+    }
+    .empty-state {
+      text-align: center;
+      opacity: 0.74;
+      padding: 20px 10px;
+      font-size: 0.92rem;
+    }
+    .schedule-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 10px;
+    }
+    .bulk-list {
+      max-height: 220px;
+      overflow: auto;
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 8px;
+      padding: 10px;
+      background: rgba(0,0,0,0.18);
+    }
+    .bulk-contact {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 4px;
+      font-size: 0.9rem;
+    }
+    .bulk-contact input { width: auto; }
+    .bulk-status {
+      margin-top: 12px;
+      font-size: 0.9rem;
+      opacity: 0.88;
+      white-space: pre-wrap;
+    }
+    
+    @media (max-width: 600px) {
+      header h1 { font-size: 1.4rem; }
+      .card { padding: 16px; }
+      .grid-2 { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 820px) {
+      .crm-layout { grid-template-columns: 1fr; }
+      .sidebar {
+        position: static;
+        height: auto;
+      }
+      .main-content { padding: 14px; }
+      .tab-buttons {
+        flex-direction: row;
+        overflow-x: auto;
+        padding-bottom: 4px;
+      }
+      .tab-btn {
+        min-width: max-content;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="login-screen" class="login-screen">
+    <div class="login-card">
+      <h1>Entrar no painel</h1>
+      <p>Acesse com o usuário cadastrado no Firebase Authentication.</p>
+      <div class="form-group">
+        <label for="loginEmail">Email</label>
+        <input type="email" id="loginEmail" autocomplete="email" placeholder="seuemail@exemplo.com">
+      </div>
+      <div class="form-group">
+        <label for="loginSenha">Senha</label>
+        <input type="password" id="loginSenha" autocomplete="current-password" placeholder="Sua senha">
+      </div>
+      <div id="loginErro" class="login-error"></div>
+      <button class="btn btn-primary" id="btnEntrar" style="width:100%;">Entrar</button>
+    </div>
+  </div>
+
+  <div id="app-shell" class="crm-layout">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-title">Agente IA CRM</div>
+        <div class="brand-subtitle">Desenvolvido por Josué Lopes</div>
+      </div>
+
+      <div class="tab-buttons">
+        <button class="tab-btn active" data-tab="whatsapp">Conectar WhatsApp</button>
+        <button class="tab-btn" data-tab="groq">Chave Groq (IA)</button>
+        <button class="tab-btn" data-tab="contatos">Contatos</button>
+        <button class="tab-btn" data-tab="agendamentos">Agendamentos</button>
+        <button class="tab-btn" data-tab="fluxos">Fluxos do Bot</button>
+        <button class="tab-btn" data-tab="condicionais">Fluxos Condicionais</button>
+        <button class="tab-btn" data-tab="modelo">Modelo e Prompt</button>
+      </div>
+
+      <div class="sidebar-footer">
+        <a href="https://wa.me/557185279135" target="_blank" class="btn btn-success btn-small" style="text-decoration:none; text-align:center;">Fale Comigo</a>
+        <button class="btn btn-small" id="btnSair" style="background:#475569; color:white;">Sair</button>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <div class="container">
+        <header>
+          <h1>Agente de IA + Chatbot WhatsApp</h1>
+          <p>Gerencie contatos, agendamentos, fluxos e IA em um painel único.</p>
+        </header>
+
+    <!-- Aba WhatsApp -->
+    <div id="tab-whatsapp" class="tab-content ativo">
+      <div class="card">
+      <h2>📲 Conectar WhatsApp</h2>
+      <div id="qr-area">
+        <div class="msg status-pendente">Aguarde 1-2 minutos. O QR Code aparecerá aqui. Na primeira vez pode demorar mais.</div>
+      </div>
+      <div id="qr-buttons" style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:16px;">
+        <button class="btn btn-primary" id="btnGerarQR">Gerar novo QR Code</button>
+        <button class="btn btn-small" id="btnLimparSessao" style="background:#f59e0b; color:white;">Limpar sessão e tentar</button>
+        <button class="btn btn-small" id="btnDesconectar" style="background:#dc2626; color:white; display:none;">Desconectar WhatsApp</button>
+      </div>
+      <p style="font-size:0.8rem; opacity:0.7; margin-top:8px; text-align:center;">Se o QR não aparecer ou não conectar, use "Limpar sessão e tentar"</p>
+      </div>
+    </div>
+
+    <!-- Aba Groq -->
+    <div id="tab-groq" class="tab-content">
+      <div class="card">
+        <h2>🔑 IA gratuita com Groq</h2>
+        <p class="dica">
+          O bot já responde a "oi", "olá" e "menu" com os fluxos abaixo. <strong>Adicione a chave Groq</strong> 
+          para a IA responder perguntas que não estão nos fluxos (ex: horário, preços, informações).
+        </p>
+        <a href="https://console.groq.com/keys" target="_blank" class="btn btn-success" style="display:inline-flex; align-items:center; gap:8px; margin-bottom:16px; text-decoration:none;">
+          🆓 Clicar aqui → Obter chave GRÁTIS no Groq
+        </a>
+        <p style="font-size:0.85rem; opacity:0.8; margin-bottom:12px;">(Vai abrir o site. Crie conta gratuita → API Keys → Create API Key → Copie)</p>
+        <div class="form-group">
+          <label>Cole sua chave aqui (gsk_...)</label>
+          <input type="password" id="groqKey" placeholder="Cole a chave que copiou do Groq">
+        </div>
+        <div class="checkbox-group">
+          <input type="checkbox" id="useAI" checked>
+          <label for="useAI">Usar IA quando a pessoa fizer perguntas que não estão nos fluxos</label>
+        </div>
+        <button class="btn btn-primary" id="salvarGroq">Salvar configuração</button>
+      </div>
+    </div>
+
+    <!-- Aba Contatos -->
+    <div id="tab-contatos" class="tab-content">
+      <div class="card">
+        <h2>👥 Contatos</h2>
+        <div class="grid-2">
+          <div class="form-group">
+            <label for="contatoNome">Nome</label>
+            <input type="text" id="contatoNome" placeholder="Nome do contato">
+          </div>
+          <div class="form-group">
+            <label for="contatoTelefone">WhatsApp</label>
+            <input type="tel" id="contatoTelefone" placeholder="5571999999999">
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="contatoTag">Tag/status</label>
+          <input type="text" id="contatoTag" placeholder="cliente, lead, suporte...">
+        </div>
+        <div class="form-group">
+          <label for="contatoObs">Observações</label>
+          <textarea id="contatoObs" placeholder="Informações importantes sobre este contato"></textarea>
+        </div>
+        <button class="btn btn-success" id="salvarContato">Salvar contato</button>
+      </div>
+
+      <div class="card">
+        <h2>Importar contatos do Google Sheets</h2>
+        <p class="dica">
+          Publique a planilha como CSV e use 3 colunas: coluna A = nome, coluna B = número WhatsApp com DDI/DDD, coluna C = tag opcional. Exemplo: Nome | 557185279135 | Cliente.
+        </p>
+        <div class="form-group">
+          <label for="contatosCsvUrl">Link CSV publicado</label>
+          <input type="url" id="contatosCsvUrl" placeholder="https://docs.google.com/spreadsheets/d/e/.../pub?gid=...&single=true&output=csv">
+        </div>
+        <button class="btn btn-primary" id="importarContatosCsv">Importar planilha</button>
+        <div id="statusImportarContatos" class="bulk-status"></div>
+      </div>
+
+      <div class="card">
+        <h2>📇 Lista de contatos</h2>
+        <div id="listaContatos">
+          <div class="empty-state">Entre no painel para carregar seus contatos.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Aba Agendamentos -->
+    <div id="tab-agendamentos" class="tab-content">
+      <div class="card">
+        <h2>🗓️ Agendamento de envios</h2>
+        <div class="grid-2">
+          <div class="form-group">
+            <label for="agContato">Contato</label>
+            <select id="agContato">
+              <option value="">Selecione um contato</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="agDataHora">Data e hora</label>
+            <input type="datetime-local" id="agDataHora">
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="agMensagem">Mensagem</label>
+          <textarea id="agMensagem" placeholder="Segue o material em anexo."></textarea>
+        </div>
+        <div class="form-group">
+          <label for="agArquivo">Arquivo opcional</label>
+          <input type="file" id="agArquivo" accept="image/*,audio/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.txt">
+        </div>
+        <div class="schedule-actions">
+          <button class="btn btn-primary" id="salvarAgendamento">Salvar agendamento</button>
+          <button class="btn btn-success" id="enviarAgora">Enviar agora</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>📣 Envio em massa</h2>
+        <div class="form-group">
+          <label>Selecionar contatos</label>
+          <div id="listaContatosMassa" class="bulk-list">
+            <div class="empty-state">Cadastre contatos para enviar em massa.</div>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="form-group">
+            <label for="massaLimite">Limite por envio</label>
+            <input type="number" id="massaLimite" min="1" max="50" value="10">
+          </div>
+          <div class="form-group">
+            <label for="massaIntervalo">Intervalo entre envios (segundos)</label>
+            <input type="number" id="massaIntervalo" min="10" max="600" value="30">
+          </div>
+        </div>
+        <div class="schedule-actions">
+          <button class="btn btn-primary" id="salvarMassa">Salvar agendamento em massa</button>
+          <button class="btn btn-success" id="enviarMassa">Enviar em massa</button>
+        </div>
+        <div id="massaStatus" class="bulk-status"></div>
+      </div>
+
+      <div class="card">
+        <h2>📨 Envios agendados</h2>
+        <div id="listaAgendamentos">
+          <div class="empty-state">Entre no painel para carregar seus agendamentos.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Aba Fluxos -->
+    <div id="tab-fluxos" class="tab-content">
+      <div class="card">
+        <h2>📋 Fluxos do Bot</h2>
+        <p class="dica">
+          Quando a pessoa digitar alguma das palavras abaixo, o bot responde com a mensagem definida. 
+          Use vírgula para separar palavras (ex: oi, olá, bom dia).
+        </p>
+        <div id="lista-fluxos"></div>
+        <div style="display:flex; gap:10px; margin-top:12px;">
+          <button class="btn btn-success" id="novoFluxo">+ Adicionar fluxo</button>
+          <button class="btn btn-primary" id="salvarFluxos">Salvar alterações</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Aba Fluxos Condicionais -->
+    <div id="tab-condicionais" class="tab-content">
+      <div class="card">
+        <h2>🔀 Fluxos Condicionais</h2>
+        <p class="dica">
+          Use para pedir nome, matrícula ou telefone, consultar uma lista CSV e responder com material, link, senha ou Pix.
+        </p>
+        <div class="form-group">
+          <label for="condGatilhos">Gatilhos iniciais</label>
+          <input type="text" id="condGatilhos" placeholder="pegar material, meu material, boleto, 2 via">
+        </div>
+        <div class="form-group">
+          <label for="condPergunta">Pergunta após o gatilho</label>
+          <textarea id="condPergunta" placeholder="Por favor, digite seu nome e sobrenome ou matrícula."></textarea>
+        </div>
+        <div class="form-group">
+          <label for="condCamposBusca">Campos para buscar</label>
+          <input type="text" id="condCamposBusca" placeholder="nome, matricula, telefone">
+        </div>
+        <div class="form-group">
+          <label for="condRespostaOk">Resposta se encontrar</label>
+          <textarea id="condRespostaOk" placeholder="Encontrei seu cadastro, {nome}. Segue seu material: {link}"></textarea>
+        </div>
+        <div class="form-group">
+          <label for="condRespostaErro">Resposta se não encontrar</label>
+          <textarea id="condRespostaErro" placeholder="Não encontrei seu cadastro. Confira os dados e tente novamente."></textarea>
+        </div>
+        <div class="form-group">
+          <label for="condDadosCsv">Lista CSV ou nomes separados por vírgula</label>
+          <textarea id="condDadosCsv" style="min-height:170px;" placeholder="nome,matricula,material,link,senha,pix,arquivo&#10;João Nascimento,12345,Apostila,https://link.com,Senha: 1234,,apostila.pdf&#10;&#10;Ou simples: Ana Lopes, Josué Lopes, João Nascimento"></textarea>
+        </div>
+        <div class="form-group">
+          <label for="condArquivoUpload">Enviar arquivo do fluxo</label>
+          <input type="file" id="condArquivoUpload" accept="image/*,audio/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip,.jwpub">
+        </div>
+        <button class="btn btn-success" id="enviarArquivoFluxo" style="margin-bottom:14px;">Enviar arquivo para fluxos</button>
+        <div id="listaArquivosFluxo" class="bulk-status"></div>
+        <button class="btn btn-primary" id="salvarCondicional">Salvar fluxo condicional</button>
+      </div>
+    </div>
+
+    <!-- Aba Modelo -->
+    <div id="tab-modelo" class="tab-content">
+      <div class="card">
+        <h2>⚙️ Prompt da IA (personalidade do bot)</h2>
+        <p class="dica">
+          Substitua <strong>[SUA EMPRESA]</strong> pelo nome real. A IA usa esse texto para saber como responder.
+        </p>
+        <div class="form-group">
+          <label>Instruções para a IA (edite e adapte para sua empresa)</label>
+          <textarea id="promptSistema" placeholder="Ex: Você é o assistente virtual da [SUA EMPRESA]..."></textarea>
+        </div>
+        <div class="form-group">
+          <label>Modelo Groq</label>
+          <select id="modeloGroq">
+            <option value="llama-3.1-8b-instant">Llama 3.1 8B (rápido)</option>
+            <option value="llama-3.1-70b-versatile">Llama 3.1 70B (mais inteligente)</option>
+            <option value="mixtral-8x7b-32768">Mixtral 8x7B</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="arquivoIA">Arquivo para conhecimento da IA</label>
+          <input type="file" id="arquivoIA" accept=".txt,.csv,.json,.md,.pdf,image/*,audio/*">
+        </div>
+        <button class="btn btn-success" id="enviarArquivoIA" style="margin-bottom:16px;">Enviar arquivo para IA</button>
+        <div id="listaArquivosIA" class="bulk-status"></div>
+        <hr style="border:0; border-top:1px solid rgba(255,255,255,0.12); margin:20px 0;">
+        <h2>Encaminhamento para atendente</h2>
+        <div class="checkbox-group">
+          <input type="checkbox" id="handoffAtivo" checked>
+          <label for="handoffAtivo">Ativar encaminhamento automático para atendente</label>
+        </div>
+        <div class="form-group">
+          <label for="handoffNumero">Número do atendente</label>
+          <input type="tel" id="handoffNumero" placeholder="557185279135">
+        </div>
+        <div class="form-group">
+          <label for="handoffGatilhos">Gatilhos de encaminhamento</label>
+          <input type="text" id="handoffGatilhos" placeholder="atendente, suporte, humano, professor, problema">
+        </div>
+        <div class="form-group">
+          <label for="handoffRespostaCliente">Resposta para o cliente</label>
+          <textarea id="handoffRespostaCliente" placeholder="Certo, vou encaminhar você para um atendente. Aguarde um instante."></textarea>
+        </div>
+        <div class="form-group">
+          <label for="handoffMensagemAtendente">Mensagem enviada ao atendente</label>
+          <textarea id="handoffMensagemAtendente" placeholder="Novo atendimento solicitado.&#10;Contato: {telefone}&#10;Mensagem: {mensagem}"></textarea>
+        </div>
+        <button class="btn btn-primary" id="salvarModelo">Salvar</button>
+      </div>
+    </div>
+
+      </div>
+    </main>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    const $ = id => document.getElementById(id);
+
+    // Tabs
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('ativo'));
+        btn.classList.add('active');
+        $(`tab-${btn.dataset.tab}`).classList.add('ativo');
+      });
+    });
+
+    // QR e status
+    socket.on('qr', (qrDataUrl) => {
+      const area = $('qr-area');
+      const btnDesconectar = $('btnDesconectar');
+      if (qrDataUrl === 'loading') {
+        area.innerHTML = `<div class="msg status-pendente qr-loading">⏳ Aguarde 1-2 minutos. O QR Code aparecerá aqui.</div>`;
+        btnDesconectar.style.display = 'none';
+        if ($('btnLimparSessao')) $('btnLimparSessao').style.display = 'inline-block';
+      } else if (qrDataUrl) {
+        area.innerHTML = `<img src="${qrDataUrl}" alt="QR Code"><div class="msg status-pendente">Escaneie com o WhatsApp (Aparelhos conectados)</div>`;
+        btnDesconectar.style.display = 'none';
+        if ($('btnLimparSessao')) $('btnLimparSessao').style.display = 'inline-block';
+      } else {
+        // qr null = conectado (QR foi limpo)
+        area.innerHTML = `<div class="msg status-ok">✅ WhatsApp conectado!</div>`;
+        btnDesconectar.style.display = 'inline-block';
+        if ($('btnLimparSessao')) $('btnLimparSessao').style.display = 'none';
+      }
+    });
+    socket.on('status', (s) => {
+      const area = $('qr-area');
+      const btnDesconectar = $('btnDesconectar');
+      if (s.conectado) {
+        area.innerHTML = `<div class="msg status-ok">✅ ${s.mensagem}</div>`;
+        btnDesconectar.style.display = 'inline-block';
+      } else {
+        if (!area.querySelector('img')) {
+          area.innerHTML = `<div class="msg status-pendente">${s.mensagem}</div>`;
+        }
+        btnDesconectar.style.display = 'none';
+      }
+      $('btnLimparSessao').style.display = s.conectado ? 'none' : 'inline-block';
+    });
+
+    // Botões Gerar QR, Limpar sessão e Desconectar
+    $('btnGerarQR').addEventListener('click', async () => {
+      $('btnGerarQR').disabled = true;
+      $('btnLimparSessao').disabled = true;
+      $('btnGerarQR').textContent = 'Gerando...';
+      try {
+        await fetch('/api/whatsapp/restart', { method: 'POST' });
+      } catch (e) {}
+      setTimeout(() => {
+        $('btnGerarQR').disabled = false;
+        $('btnLimparSessao').disabled = false;
+        $('btnGerarQR').textContent = 'Gerar novo QR Code';
+      }, 3000);
+    });
+    $('btnLimparSessao').addEventListener('click', async () => {
+      if (!confirm('Isso vai limpar a sessão do WhatsApp. Você precisará escanear o QR Code de novo. Continuar?')) return;
+      $('btnGerarQR').disabled = true;
+      $('btnLimparSessao').disabled = true;
+      $('btnLimparSessao').textContent = 'Limpando...';
+      try {
+        await fetch('/api/whatsapp/restart?limpar=1', { method: 'POST' });
+      } catch (e) {}
+      setTimeout(() => {
+        $('btnGerarQR').disabled = false;
+        $('btnLimparSessao').disabled = false;
+        $('btnLimparSessao').textContent = 'Limpar sessão e tentar';
+      }, 3000);
+    });
+    $('btnDesconectar').addEventListener('click', async () => {
+      if (!confirm('Desconectar o WhatsApp?')) return;
+      $('btnDesconectar').disabled = true;
+      try {
+        await fetch('/api/whatsapp/disconnect', { method: 'POST' });
+      } catch (e) {}
+      $('btnDesconectar').disabled = false;
+      $('btnDesconectar').style.display = 'none';
+    });
+
+    // Carregar config
+    async function carregarConfig() {
+      const r = await fetch('/api/config/full');
+      const cfg = await r.json();
+      $('groqKey').value = cfg.groqApiKey || '';
+      $('useAI').checked = cfg.useAI !== false;
+      $('promptSistema').value = cfg.promptSistema || '';
+      $('modeloGroq').value = cfg.model || 'llama-3.1-8b-instant';
+      const handoff = cfg.handoff || {};
+      $('handoffAtivo').checked = handoff.ativo !== false;
+      $('handoffNumero').value = handoff.numeroAtendente || '557185279135';
+      $('handoffGatilhos').value = (handoff.gatilhos || ['atendente', 'suporte', 'humano', 'falar com atendente', 'falar com humano', 'professor', 'problema']).join(', ');
+      $('handoffRespostaCliente').value = handoff.respostaCliente || 'Certo, vou encaminhar você para um atendente. Aguarde um instante.';
+      $('handoffMensagemAtendente').value = handoff.mensagemAtendente || 'Novo atendimento solicitado.\\n\\nContato: {telefone}\\nMensagem: {mensagem}';
+      renderFluxos(cfg.flows || []);
+      renderArquivosIA(cfg.knowledgeFiles || []);
+      carregarCondicional(cfg.conditionalFlows || []);
+      carregarArquivosFluxo();
+    }
+
+    function condicionalPadrao() {
+      return {
+        id: 'material-aluno',
+        ativo: true,
+        gatilhos: ['pegar material', 'pega meu material', 'meu material', 'material', 'apostila'],
+        pergunta: 'Por favor, digite seu *nome e sobrenome* ou matrícula.',
+        camposBusca: ['nome', 'nome completo', 'aluno', 'matricula', 'matrícula', 'telefone'],
+        respostaEncontrado: 'Encontrei seu cadastro, {nome}. Segue seu material:\n{material}\n{link}\n{senha}',
+        respostaNaoEncontrado: 'Não encontrei seu cadastro. Confira se digitou nome e sobrenome corretamente ou aguarde um instrutor.',
+        dadosCsv: 'nome,matricula,material,link,senha,arquivo\nJoão Nascimento,12345,Material do curso,https://exemplo.com/material,Senha: 1234,'
+      };
+    }
+
+    function carregarCondicional(flows) {
+      const flow = flows[0] || condicionalPadrao();
+      $('condGatilhos').value = (flow.gatilhos || []).join(', ');
+      $('condPergunta').value = flow.pergunta || '';
+      $('condCamposBusca').value = (flow.camposBusca || []).join(', ');
+      $('condRespostaOk').value = flow.respostaEncontrado || '';
+      $('condRespostaErro').value = flow.respostaNaoEncontrado || '';
+      $('condDadosCsv').value = flow.dadosCsv || '';
+    }
+
+    async function carregarArquivosFluxo() {
+      const div = $('listaArquivosFluxo');
+      if (!div) return;
+      try {
+        const r = await fetch('/api/fluxos/arquivos');
+        const json = await r.json();
+        if (!json.ok || !json.arquivos.length) {
+          div.textContent = 'Nenhum arquivo disponível em uploads/fluxos.';
+          return;
+        }
+        div.innerHTML = 'Arquivos disponíveis:<br>' + json.arquivos.map(file => {
+          return `• <strong>${escapeHtml(file.nome)}</strong>`;
+        }).join('<br>');
+      } catch (error) {
+        div.textContent = 'Não foi possível carregar os arquivos.';
+      }
+    }
+
+    function renderArquivosIA(files) {
+      const div = $('listaArquivosIA');
+      if (!div) return;
+      if (!files.length) {
+        div.textContent = 'Nenhum arquivo de conhecimento enviado ainda.';
+        return;
+      }
+      div.innerHTML = files.map(file => {
+        const status = file.textoExtraido ? 'texto disponível para IA' : 'salvo, leitura automática ainda não disponível';
+        return `• ${escapeHtml(file.nomeOriginal)} (${status})`;
+      }).join('<br>');
+    }
+
+    function escapeHtml(s) {
+      const div = document.createElement('div');
+      div.textContent = s || '';
+      return div.innerHTML;
+    }
+    function renderFluxos(flows) {
+      const div = $('lista-fluxos');
+      div.innerHTML = flows.map((f, i) => {
+        const palavrasStr = (f.palavras || []).join(', ');
+        const respostaStr = f.resposta || '';
+        return `
+        <div class="flow-item" data-idx="${i}">
+          <div class="flow-header">
+            <span>Fluxo ${i + 1}</span>
+            <button class="btn btn-small" onclick="removerFluxo(${i})">Remover</button>
+          </div>
+          <div class="flow-palavras">
+            <input type="text" class="flow-palavras-input" placeholder="oi, olá, bom dia" value="${escapeHtml(palavrasStr)}">
+          </div>
+          <div class="form-group">
+            <textarea class="flow-resposta-input" placeholder="Resposta do bot">${escapeHtml(respostaStr)}</textarea>
+          </div>
+        </div>
+      `}).join('');
+    }
+
+    function coletarFluxos() {
+      const items = document.querySelectorAll('.flow-item');
+      return Array.from(items).map((el, i) => {
+        const palavrasRaw = el.querySelector('.flow-palavras-input')?.value || '';
+        const palavras = palavrasRaw.split(',').map(p => p.trim()).filter(Boolean);
+        const resposta = el.querySelector('.flow-resposta-input')?.value || '';
+        return { id: String(i + 1), palavras, resposta };
+      });
+    }
+
+    window.removerFluxo = function(i) {
+      const flows = coletarFluxos();
+      flows.splice(i, 1);
+      renderFluxos(flows);
+    };
+
+    $('novoFluxo').addEventListener('click', () => {
+      const flows = coletarFluxos();
+      flows.push({ id: String(flows.length + 1), palavras: [], resposta: '' });
+      renderFluxos(flows);
+    });
+
+    async function salvarTudo() {
+      const flows = coletarFluxos();
+      await fetch('/api/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          groqApiKey: $('groqKey').value.trim(),
+          useAI: $('useAI').checked,
+          model: $('modeloGroq').value,
+          promptSistema: $('promptSistema').value.trim(),
+          handoff: {
+            ativo: $('handoffAtivo').checked,
+            numeroAtendente: $('handoffNumero').value.replace(/\D/g, ''),
+            gatilhos: $('handoffGatilhos').value.split(',').map(v => v.trim()).filter(Boolean),
+            respostaCliente: $('handoffRespostaCliente').value.trim(),
+            mensagemAtendente: $('handoffMensagemAtendente').value.trim()
+          },
+          flows
+        })
+      });
+      alert('Salvo com sucesso!');
+    }
+
+    $('salvarGroq').addEventListener('click', salvarTudo);
+    $('salvarModelo').addEventListener('click', salvarTudo);
+    $('salvarCondicional').addEventListener('click', async () => {
+      const conditionalFlows = [{
+        id: 'material-aluno',
+        ativo: true,
+        gatilhos: $('condGatilhos').value.split(',').map(v => v.trim()).filter(Boolean),
+        pergunta: $('condPergunta').value.trim(),
+        camposBusca: $('condCamposBusca').value.split(',').map(v => v.trim()).filter(Boolean),
+        respostaEncontrado: $('condRespostaOk').value.trim(),
+        respostaNaoEncontrado: $('condRespostaErro').value.trim(),
+        dadosCsv: $('condDadosCsv').value.trim()
+      }];
+      await fetch('/api/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ conditionalFlows })
+      });
+      alert('Fluxo condicional salvo!');
+    });
+    $('enviarArquivoFluxo').addEventListener('click', async () => {
+      const input = $('condArquivoUpload');
+      const file = input.files && input.files[0];
+      if (!file) {
+        alert('Escolha um arquivo primeiro.');
+        return;
+      }
+      $('enviarArquivoFluxo').disabled = true;
+      $('enviarArquivoFluxo').textContent = 'Enviando...';
+      try {
+        const dataUrl = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+        const r = await fetch('/api/upload/fluxo', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nome: file.name, tipo: file.type, dataUrl })
+        });
+        const json = await r.json();
+        if (!json.ok) throw new Error(json.erro || 'Erro ao enviar arquivo.');
+        input.value = '';
+        await carregarArquivosFluxo();
+        alert(`Arquivo enviado: ${json.arquivo.nome}\\nUse esse nome na coluna arquivo do CSV.`);
+      } catch (error) {
+        alert(error.message || 'Não foi possível enviar o arquivo.');
+      } finally {
+        $('enviarArquivoFluxo').disabled = false;
+        $('enviarArquivoFluxo').textContent = 'Enviar arquivo para fluxos';
+      }
+    });
+    $('enviarArquivoIA').addEventListener('click', async () => {
+      const input = $('arquivoIA');
+      const file = input.files && input.files[0];
+      if (!file) {
+        alert('Escolha um arquivo primeiro.');
+        return;
+      }
+      $('enviarArquivoIA').disabled = true;
+      $('enviarArquivoIA').textContent = 'Enviando...';
+      try {
+        const dataUrl = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+        const r = await fetch('/api/upload/ia', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nome: file.name, tipo: file.type, dataUrl })
+        });
+        const json = await r.json();
+        if (!json.ok) throw new Error(json.erro || 'Erro ao enviar arquivo.');
+        input.value = '';
+        await carregarConfig();
+        alert(json.arquivo.textoExtraido ? 'Arquivo enviado e texto disponível para IA.' : 'Arquivo salvo. Para PDF, imagem e áudio, a leitura automática será adicionada em outra etapa.');
+      } catch (error) {
+        alert(error.message || 'Não foi possível enviar o arquivo.');
+      } finally {
+        $('enviarArquivoIA').disabled = false;
+        $('enviarArquivoIA').textContent = 'Enviar arquivo para IA';
+      }
+    });
+    $('salvarFluxos').addEventListener('click', async () => {
+      const flows = coletarFluxos();
+      await fetch('/api/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ flows })
+      });
+      alert('Fluxos salvos!');
+    });
+
+    // Salvar fluxos ao editar (debounce)
+    let debounceFluxo;
+    document.addEventListener('input', (e) => {
+      if (e.target.closest('.flow-item')) {
+        clearTimeout(debounceFluxo);
+        debounceFluxo = setTimeout(() => {
+          const flows = coletarFluxos();
+          fetch('/api/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ flows })
+          });
+        }, 1500);
+      }
+    });
+
+    carregarConfig();
+  </script>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+    import {
+      getAuth,
+      onAuthStateChanged,
+      signInWithEmailAndPassword,
+      signOut
+    } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+    import {
+      addDoc,
+      collection,
+      deleteDoc,
+      doc,
+      getFirestore,
+      onSnapshot,
+      query,
+      serverTimestamp,
+      Timestamp,
+      updateDoc,
+      where
+    } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDx5Z39HMJMXt0YI6NyW-vVS1_oZU1WFpI",
+      authDomain: "agenteiachatbot.firebaseapp.com",
+      projectId: "agenteiachatbot",
+      storageBucket: "agenteiachatbot.firebasestorage.app",
+      messagingSenderId: "40326851529",
+      appId: "1:40326851529:web:5b98be8adaa9d8a3365618"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const loginEmail = document.getElementById("loginEmail");
+    const loginSenha = document.getElementById("loginSenha");
+    const loginErro = document.getElementById("loginErro");
+    const btnEntrar = document.getElementById("btnEntrar");
+    const btnSair = document.getElementById("btnSair");
+    const contatoNome = document.getElementById("contatoNome");
+    const contatoTelefone = document.getElementById("contatoTelefone");
+    const contatoTag = document.getElementById("contatoTag");
+    const contatoObs = document.getElementById("contatoObs");
+    const salvarContato = document.getElementById("salvarContato");
+    const listaContatos = document.getElementById("listaContatos");
+    const contatosCsvUrl = document.getElementById("contatosCsvUrl");
+    const importarContatosCsv = document.getElementById("importarContatosCsv");
+    const statusImportarContatos = document.getElementById("statusImportarContatos");
+    const agContato = document.getElementById("agContato");
+    const agDataHora = document.getElementById("agDataHora");
+    const agMensagem = document.getElementById("agMensagem");
+    const agArquivo = document.getElementById("agArquivo");
+    const salvarAgendamento = document.getElementById("salvarAgendamento");
+    const enviarAgora = document.getElementById("enviarAgora");
+    const listaAgendamentos = document.getElementById("listaAgendamentos");
+    const listaContatosMassa = document.getElementById("listaContatosMassa");
+    const massaLimite = document.getElementById("massaLimite");
+    const massaIntervalo = document.getElementById("massaIntervalo");
+    const salvarMassa = document.getElementById("salvarMassa");
+    const enviarMassa = document.getElementById("enviarMassa");
+    const massaStatus = document.getElementById("massaStatus");
+    const MENSAGEM_PADRAO_ANEXO = "Segue o material em anexo.";
+    let usuarioAtual = null;
+    let cancelarEscutaContatos = null;
+    let cancelarEscutaAgendamentos = null;
+    let contatosCache = [];
+    let agendamentosCache = [];
+    let processandoAgendados = false;
+
+    function mostrarErro(mensagem) {
+      loginErro.textContent = mensagem;
+      loginErro.classList.add("ativo");
+    }
+
+    function limparErro() {
+      loginErro.textContent = "";
+      loginErro.classList.remove("ativo");
+    }
+
+    async function entrar() {
+      limparErro();
+      const email = loginEmail.value.trim();
+      const senha = loginSenha.value;
+      if (!email || !senha) {
+        mostrarErro("Informe email e senha.");
+        return;
+      }
+      btnEntrar.disabled = true;
+      btnEntrar.textContent = "Entrando...";
+      try {
+        await signInWithEmailAndPassword(auth, email, senha);
+      } catch (error) {
+        mostrarErro("Não foi possível entrar. Confira email, senha e se o usuário existe no Firebase.");
+      } finally {
+        btnEntrar.disabled = false;
+        btnEntrar.textContent = "Entrar";
+      }
+    }
+
+    btnEntrar.addEventListener("click", entrar);
+    loginSenha.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") entrar();
+    });
+    loginEmail.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") entrar();
+    });
+    btnSair.addEventListener("click", () => signOut(auth));
+
+    function limparFormularioContato() {
+      contatoNome.value = "";
+      contatoTelefone.value = "";
+      contatoTag.value = "";
+      contatoObs.value = "";
+    }
+
+    function limparFormularioAgendamento() {
+      agContato.value = "";
+      agDataHora.value = "";
+      agMensagem.value = "";
+      agArquivo.value = "";
+    }
+
+    function normalizarTelefone(valor) {
+      return (valor || "").replace(/\D/g, "");
+    }
+
+    function parseCsvLinhaCliente(line) {
+      const values = [];
+      let current = "";
+      let inQuotes = false;
+      for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        const next = line[i + 1];
+        if (char === '"' && inQuotes && next === '"') {
+          current += '"';
+          i++;
+        } else if (char === '"') {
+          inQuotes = !inQuotes;
+        } else if (char === "," && !inQuotes) {
+          values.push(current.trim());
+          current = "";
+        } else {
+          current += char;
+        }
+      }
+      values.push(current.trim());
+      return values;
+    }
+
+    function parseContatosCsv(csv) {
+      const linhas = String(csv || "").split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+      if (!linhas.length) return [];
+      const contatos = [];
+      for (const linha of linhas) {
+        const colunas = parseCsvLinhaCliente(linha);
+        const nome = (colunas[0] || "").trim();
+        const telefone = normalizarTelefone(colunas[1] || "");
+        const tag = (colunas[2] || "").trim();
+        const primeiraColuna = nome.toLowerCase();
+        if (!nome || !telefone) continue;
+        if (["nome", "aluno", "cliente"].includes(primeiraColuna)) continue;
+        contatos.push({ nome, telefone, tag });
+      }
+      return contatos;
+    }
+
+    function escapeText(valor) {
+      const div = document.createElement("div");
+      div.textContent = valor || "";
+      return div.innerHTML;
+    }
+
+    async function salvarNovoContato() {
+      if (!usuarioAtual) {
+        alert("Entre no painel antes de salvar contatos.");
+        return;
+      }
+      const nome = contatoNome.value.trim();
+      const telefone = normalizarTelefone(contatoTelefone.value);
+      const tag = contatoTag.value.trim();
+      const observacoes = contatoObs.value.trim();
+      if (!nome || !telefone) {
+        alert("Informe pelo menos nome e WhatsApp.");
+        return;
+      }
+      salvarContato.disabled = true;
+      salvarContato.textContent = "Salvando...";
+      try {
+        await addDoc(collection(db, "contatos"), {
+          uid: usuarioAtual.uid,
+          nome,
+          telefone,
+          tag,
+          observacoes,
+          criadoEm: serverTimestamp(),
+          atualizadoEm: serverTimestamp()
+        });
+        limparFormularioContato();
+      } catch (error) {
+        alert("Não foi possível salvar o contato. Confira as regras do Firestore.");
+      } finally {
+        salvarContato.disabled = false;
+        salvarContato.textContent = "Salvar contato";
+      }
+    }
+
+    function renderContatos(snapshot) {
+      const contatos = [];
+      snapshot.forEach((item) => contatos.push({ id: item.id, ...item.data() }));
+      contatos.sort((a, b) => (a.nome || "").localeCompare(b.nome || "", "pt-BR"));
+      contatosCache = contatos;
+      renderOpcoesContatos();
+
+      if (!contatos.length) {
+        listaContatos.innerHTML = `<div class="empty-state">Nenhum contato cadastrado ainda.</div>`;
+        return;
+      }
+
+      listaContatos.innerHTML = contatos.map((contato) => {
+        const tag = contato.tag ? `<div class="contact-meta">Tag: ${escapeText(contato.tag)}</div>` : "";
+        const obs = contato.observacoes ? `<div class="contact-meta">${escapeText(contato.observacoes)}</div>` : "";
+        return `
+          <div class="contact-item">
+            <div class="contact-header">
+              <div>
+                <div class="contact-name">${escapeText(contato.nome)}</div>
+                <div class="contact-phone">${escapeText(contato.telefone)}</div>
+              </div>
+              <button class="btn btn-small" style="background:#dc2626; color:white;" data-delete-contato="${contato.id}">Excluir</button>
+            </div>
+            ${tag}
+            ${obs}
+          </div>
+        `;
+      }).join("");
+    }
+
+    function renderOpcoesContatos() {
+      const selecionado = agContato.value;
+      agContato.innerHTML = `<option value="">Selecione um contato</option>` + contatosCache.map((contato) => {
+        return `<option value="${contato.id}">${escapeText(contato.nome)} - ${escapeText(contato.telefone)}</option>`;
+      }).join("");
+      agContato.value = selecionado;
+      renderContatosMassa();
+    }
+
+    function renderContatosMassa() {
+      if (!contatosCache.length) {
+        listaContatosMassa.innerHTML = `<div class="empty-state">Cadastre contatos para enviar em massa.</div>`;
+        return;
+      }
+      listaContatosMassa.innerHTML = contatosCache.map((contato) => {
+        return `
+          <label class="bulk-contact">
+            <input type="checkbox" value="${contato.id}">
+            <span>${escapeText(contato.nome)} - ${escapeText(contato.telefone)}</span>
+          </label>
+        `;
+      }).join("");
+    }
+
+    function escutarContatos(user) {
+      if (cancelarEscutaContatos) cancelarEscutaContatos();
+      if (!user) {
+        listaContatos.innerHTML = `<div class="empty-state">Entre no painel para carregar seus contatos.</div>`;
+        return;
+      }
+      const contatosQuery = query(collection(db, "contatos"), where("uid", "==", user.uid));
+      cancelarEscutaContatos = onSnapshot(contatosQuery, renderContatos, () => {
+        listaContatos.innerHTML = `<div class="empty-state">Não foi possível carregar contatos. Confira as regras do Firestore.</div>`;
+      });
+    }
+
+    salvarContato.addEventListener("click", salvarNovoContato);
+    importarContatosCsv.addEventListener("click", async () => {
+      if (!usuarioAtual) {
+        alert("Entre no painel antes de importar contatos.");
+        return;
+      }
+      const url = contatosCsvUrl.value.trim();
+      if (!url) {
+        alert("Cole o link CSV publicado do Google Sheets.");
+        return;
+      }
+
+      importarContatosCsv.disabled = true;
+      importarContatosCsv.textContent = "Importando...";
+      statusImportarContatos.textContent = "Baixando planilha...";
+      try {
+        const response = await fetch("/api/csv-url", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url })
+        });
+        const json = await response.json();
+        if (!json.ok) throw new Error(json.erro || "Não foi possível baixar a planilha.");
+
+        const contatos = parseContatosCsv(json.csv);
+        if (!contatos.length) throw new Error("Nenhum contato válido encontrado. Use coluna A nome, B WhatsApp, C tag opcional.");
+
+        const telefonesExistentes = new Set(contatosCache.map(contato => normalizarTelefone(contato.telefone)));
+        let criados = 0;
+        let pulados = 0;
+
+        for (const contato of contatos) {
+          if (telefonesExistentes.has(contato.telefone)) {
+            pulados++;
+            continue;
+          }
+          await addDoc(collection(db, "contatos"), {
+            uid: usuarioAtual.uid,
+            nome: contato.nome,
+            telefone: contato.telefone,
+            tag: contato.tag,
+            observacoes: "Importado do Google Sheets",
+            criadoEm: serverTimestamp(),
+            atualizadoEm: serverTimestamp()
+          });
+          telefonesExistentes.add(contato.telefone);
+          criados++;
+        }
+
+        statusImportarContatos.textContent = `Importação concluída. Criados: ${criados}. Ignorados por duplicidade: ${pulados}.`;
+      } catch (error) {
+        statusImportarContatos.textContent = error.message || "Erro ao importar contatos.";
+      } finally {
+        importarContatosCsv.disabled = false;
+        importarContatosCsv.textContent = "Importar planilha";
+      }
+    });
+    listaContatos.addEventListener("click", async (event) => {
+      const botao = event.target.closest("[data-delete-contato]");
+      if (!botao) return;
+      if (!confirm("Excluir este contato?")) return;
+      await deleteDoc(doc(db, "contatos", botao.dataset.deleteContato));
+    });
+
+    function getContatoSelecionado() {
+      return contatosCache.find((contato) => contato.id === agContato.value) || null;
+    }
+
+    function arquivoParaDataUrl(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function salvarArquivoAgendamento() {
+      const file = agArquivo.files && agArquivo.files[0];
+      if (!file) return null;
+      const dataUrl = await arquivoParaDataUrl(file);
+      const resposta = await fetch("/api/upload/agendamento", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nome: file.name, tipo: file.type, dataUrl })
+      });
+      const json = await resposta.json();
+      if (!json.ok) throw new Error(json.erro || "Erro ao salvar arquivo");
+      return json.arquivo;
+    }
+
+    async function montarDadosAgendamento(exigirData) {
+      if (!usuarioAtual) throw new Error("Entre no painel antes de usar agendamentos.");
+      const contato = getContatoSelecionado();
+      const temArquivo = !!(agArquivo.files && agArquivo.files[0]);
+      const mensagem = agMensagem.value.trim() || (temArquivo ? MENSAGEM_PADRAO_ANEXO : "");
+      const dataHora = agDataHora.value;
+      if (!contato) throw new Error("Selecione um contato.");
+      if (!mensagem && !temArquivo) {
+        throw new Error("Informe uma mensagem ou escolha um arquivo.");
+      }
+      if (exigirData && !dataHora) throw new Error("Informe a data e hora do agendamento.");
+      const arquivo = await salvarArquivoAgendamento();
+      return {
+        uid: usuarioAtual.uid,
+        contatoId: contato.id,
+        contatoNome: contato.nome || "",
+        telefone: contato.telefone || "",
+        mensagem,
+        arquivo,
+        dataHora: dataHora ? Timestamp.fromDate(new Date(dataHora)) : null,
+        status: exigirData ? "pendente" : "enviado",
+        criadoEm: serverTimestamp(),
+        atualizadoEm: serverTimestamp()
+      };
+    }
+
+    async function montarArquivoCompartilhado() {
+      const file = agArquivo.files && agArquivo.files[0];
+      if (!file) return null;
+      return salvarArquivoAgendamento();
+    }
+
+    async function enviarWhatsApp(agendamento) {
+      const resposta = await fetch("/api/whatsapp/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          telefone: agendamento.telefone,
+          mensagem: agendamento.mensagem,
+          arquivo: agendamento.arquivo || null
+        })
+      });
+      const json = await resposta.json();
+      if (!json.ok) throw new Error(json.erro || "Erro ao enviar WhatsApp");
+    }
+
+    async function salvarNovoAgendamento() {
+      salvarAgendamento.disabled = true;
+      salvarAgendamento.textContent = "Salvando...";
+      try {
+        const dados = await montarDadosAgendamento(true);
+        await addDoc(collection(db, "agendamentos"), dados);
+        limparFormularioAgendamento();
+      } catch (error) {
+        alert(error.message || "Não foi possível salvar o agendamento.");
+      } finally {
+        salvarAgendamento.disabled = false;
+        salvarAgendamento.textContent = "Salvar agendamento";
+      }
+    }
+
+    async function enviarMensagemAgora() {
+      enviarAgora.disabled = true;
+      enviarAgora.textContent = "Enviando...";
+      try {
+        const dados = await montarDadosAgendamento(false);
+        await enviarWhatsApp(dados);
+        await addDoc(collection(db, "agendamentos"), {
+          ...dados,
+          enviadoEm: serverTimestamp()
+        });
+        limparFormularioAgendamento();
+        alert("Mensagem enviada!");
+      } catch (error) {
+        alert(error.message || "Não foi possível enviar agora.");
+      } finally {
+        enviarAgora.disabled = false;
+        enviarAgora.textContent = "Enviar agora";
+      }
+    }
+
+    function formatarData(timestamp) {
+      if (!timestamp || !timestamp.toDate) return "Sem data";
+      return timestamp.toDate().toLocaleString("pt-BR");
+    }
+
+    function renderAgendamentos(snapshot) {
+      const agendamentos = [];
+      snapshot.forEach((item) => agendamentos.push({ id: item.id, ...item.data() }));
+      agendamentos.sort((a, b) => {
+        const da = a.dataHora?.toMillis ? a.dataHora.toMillis() : 0;
+        const dbb = b.dataHora?.toMillis ? b.dataHora.toMillis() : 0;
+        return dbb - da;
+      });
+      agendamentosCache = agendamentos;
+
+      if (!agendamentos.length) {
+        listaAgendamentos.innerHTML = `<div class="empty-state">Nenhum agendamento cadastrado ainda.</div>`;
+        return;
+      }
+
+      listaAgendamentos.innerHTML = agendamentos.map((item) => {
+        const arquivo = item.arquivo ? `<div class="contact-meta">Arquivo: ${escapeText(item.arquivo.nomeOriginal)}</div>` : "";
+        const mensagem = item.mensagem ? `<div class="contact-meta">${escapeText(item.mensagem)}</div>` : "";
+        return `
+          <div class="contact-item">
+            <div class="contact-header">
+              <div>
+                <div class="contact-name">${escapeText(item.contatoNome || item.telefone)}</div>
+                <div class="contact-phone">${escapeText(item.telefone)} | ${escapeText(item.status || "pendente")}</div>
+              </div>
+              <div class="schedule-actions" style="margin-top:0;">
+                ${item.status === "pendente" ? `<button class="btn btn-small btn-success" data-send-agendamento="${item.id}">Enviar agora</button>` : ""}
+                <button class="btn btn-small" style="background:#dc2626; color:white;" data-delete-agendamento="${item.id}">Excluir</button>
+              </div>
+            </div>
+            <div class="contact-meta">Data: ${escapeText(formatarData(item.dataHora))}</div>
+            ${mensagem}
+            ${arquivo}
+          </div>
+        `;
+      }).join("");
+    }
+
+    function escutarAgendamentos(user) {
+      if (cancelarEscutaAgendamentos) cancelarEscutaAgendamentos();
+      if (!user) {
+        listaAgendamentos.innerHTML = `<div class="empty-state">Entre no painel para carregar seus agendamentos.</div>`;
+        return;
+      }
+      const agendamentosQuery = query(collection(db, "agendamentos"), where("uid", "==", user.uid));
+      cancelarEscutaAgendamentos = onSnapshot(agendamentosQuery, renderAgendamentos, () => {
+        listaAgendamentos.innerHTML = `<div class="empty-state">Não foi possível carregar agendamentos. Confira as regras do Firestore.</div>`;
+      });
+    }
+
+    async function enviarAgendamentoSalvo(id) {
+      const item = agendamentosCache.find((agendamento) => agendamento.id === id);
+      if (!item) return;
+      await updateDoc(doc(db, "agendamentos", id), {
+        status: "enviando",
+        atualizadoEm: serverTimestamp()
+      });
+      try {
+        await enviarWhatsApp(item);
+        await updateDoc(doc(db, "agendamentos", id), {
+          status: "enviado",
+          enviadoEm: serverTimestamp(),
+          atualizadoEm: serverTimestamp()
+        });
+      } catch (error) {
+        await updateDoc(doc(db, "agendamentos", id), {
+          status: "erro",
+          erro: error.message || "Erro ao enviar",
+          atualizadoEm: serverTimestamp()
+        });
+        throw error;
+      }
+    }
+
+    async function processarAgendadosVencidos() {
+      if (processandoAgendados || !usuarioAtual) return;
+      processandoAgendados = true;
+      try {
+        const agora = Date.now();
+        const vencidos = agendamentosCache.filter((item) => {
+          return item.status === "pendente" && item.dataHora?.toMillis && item.dataHora.toMillis() <= agora;
+        });
+        for (const item of vencidos) {
+          await enviarAgendamentoSalvo(item.id);
+        }
+      } catch (error) {
+        console.error("Erro ao processar agendados:", error);
+      } finally {
+        processandoAgendados = false;
+      }
+    }
+
+    salvarAgendamento.addEventListener("click", salvarNovoAgendamento);
+    enviarAgora.addEventListener("click", enviarMensagemAgora);
+    salvarMassa.addEventListener("click", async () => {
+      if (!usuarioAtual) {
+        alert("Entre no painel antes de agendar em massa.");
+        return;
+      }
+      const idsSelecionados = Array.from(listaContatosMassa.querySelectorAll("input:checked")).map((input) => input.value);
+      const limite = Math.max(1, Math.min(50, Number(massaLimite.value) || 10));
+      const contatosSelecionados = contatosCache.filter((contato) => idsSelecionados.includes(contato.id)).slice(0, limite);
+      const temArquivo = !!(agArquivo.files && agArquivo.files[0]);
+      const mensagem = agMensagem.value.trim() || (temArquivo ? MENSAGEM_PADRAO_ANEXO : "");
+      const dataHora = agDataHora.value;
+
+      if (!contatosSelecionados.length) {
+        alert("Selecione pelo menos um contato.");
+        return;
+      }
+      if (!dataHora) {
+        alert("Informe a data e hora do agendamento.");
+        return;
+      }
+      if (!mensagem && !temArquivo) {
+        alert("Informe uma mensagem ou escolha um arquivo.");
+        return;
+      }
+      if (!confirm(`Criar agendamento para ${contatosSelecionados.length} contato(s)?`)) return;
+
+      salvarMassa.disabled = true;
+      massaStatus.textContent = "Salvando agendamento em massa...";
+      try {
+        const arquivo = await montarArquivoCompartilhado();
+        const dataTimestamp = Timestamp.fromDate(new Date(dataHora));
+        for (let i = 0; i < contatosSelecionados.length; i++) {
+          const contato = contatosSelecionados[i];
+          massaStatus.textContent = `Agendando ${i + 1}/${contatosSelecionados.length}: ${contato.nome}`;
+          await addDoc(collection(db, "agendamentos"), {
+            uid: usuarioAtual.uid,
+            contatoId: contato.id,
+            contatoNome: contato.nome || "",
+            telefone: contato.telefone || "",
+            mensagem,
+            arquivo,
+            dataHora: dataTimestamp,
+            status: "pendente",
+            tipoEnvio: "massa_agendado",
+            criadoEm: serverTimestamp(),
+            atualizadoEm: serverTimestamp()
+          });
+        }
+        massaStatus.textContent = `Agendamento em massa criado: ${contatosSelecionados.length} contato(s).`;
+        limparFormularioAgendamento();
+      } catch (error) {
+        massaStatus.textContent = `Erro ao agendar em massa: ${error.message || "falha desconhecida"}`;
+      } finally {
+        salvarMassa.disabled = false;
+      }
+    });
+    enviarMassa.addEventListener("click", async () => {
+      if (!usuarioAtual) {
+        alert("Entre no painel antes de enviar em massa.");
+        return;
+      }
+      const idsSelecionados = Array.from(listaContatosMassa.querySelectorAll("input:checked")).map((input) => input.value);
+      const limite = Math.max(1, Math.min(50, Number(massaLimite.value) || 10));
+      const intervalo = Math.max(10, Math.min(600, Number(massaIntervalo.value) || 30));
+      const contatosSelecionados = contatosCache.filter((contato) => idsSelecionados.includes(contato.id)).slice(0, limite);
+      const temArquivo = !!(agArquivo.files && agArquivo.files[0]);
+      const mensagem = agMensagem.value.trim() || (temArquivo ? MENSAGEM_PADRAO_ANEXO : "");
+
+      if (!contatosSelecionados.length) {
+        alert("Selecione pelo menos um contato.");
+        return;
+      }
+      if (!mensagem && !temArquivo) {
+        alert("Informe uma mensagem ou escolha um arquivo.");
+        return;
+      }
+      if (!confirm(`Enviar para ${contatosSelecionados.length} contato(s) com intervalo de ${intervalo} segundos?`)) return;
+
+      enviarMassa.disabled = true;
+      massaStatus.textContent = "Preparando envio em massa...";
+      try {
+        const arquivo = await montarArquivoCompartilhado();
+        for (let i = 0; i < contatosSelecionados.length; i++) {
+          const contato = contatosSelecionados[i];
+          massaStatus.textContent = `Enviando ${i + 1}/${contatosSelecionados.length}: ${contato.nome}`;
+          const dados = {
+            uid: usuarioAtual.uid,
+            contatoId: contato.id,
+            contatoNome: contato.nome || "",
+            telefone: contato.telefone || "",
+            mensagem,
+            arquivo,
+            dataHora: null,
+            status: "enviado",
+            criadoEm: serverTimestamp(),
+            atualizadoEm: serverTimestamp()
+          };
+          await enviarWhatsApp(dados);
+          await addDoc(collection(db, "agendamentos"), {
+            ...dados,
+            enviadoEm: serverTimestamp(),
+            tipoEnvio: "massa"
+          });
+          if (i < contatosSelecionados.length - 1) {
+            await new Promise((resolve) => setTimeout(resolve, intervalo * 1000));
+          }
+        }
+        massaStatus.textContent = `Envio em massa concluído: ${contatosSelecionados.length} contato(s).`;
+      } catch (error) {
+        massaStatus.textContent = `Erro no envio em massa: ${error.message || "falha desconhecida"}`;
+      } finally {
+        enviarMassa.disabled = false;
+      }
+    });
+    listaAgendamentos.addEventListener("click", async (event) => {
+      const botaoEnviar = event.target.closest("[data-send-agendamento]");
+      const botaoExcluir = event.target.closest("[data-delete-agendamento]");
+      try {
+        if (botaoEnviar) {
+          await enviarAgendamentoSalvo(botaoEnviar.dataset.sendAgendamento);
+        }
+        if (botaoExcluir && confirm("Excluir este agendamento?")) {
+          await deleteDoc(doc(db, "agendamentos", botaoExcluir.dataset.deleteAgendamento));
+        }
+      } catch (error) {
+        alert(error.message || "Não foi possível concluir a ação.");
+      }
+    });
+    setInterval(processarAgendadosVencidos, 30000);
+
+    onAuthStateChanged(auth, (user) => {
+      usuarioAtual = user;
+      document.body.classList.toggle("authenticated", !!user);
+      if (!user) {
+        loginSenha.value = "";
+        limparFormularioContato();
+        limparFormularioAgendamento();
+      }
+      escutarContatos(user);
+      escutarAgendamentos(user);
+    });
+  </script>
+</body>
+</html>
