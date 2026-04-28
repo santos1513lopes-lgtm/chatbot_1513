@@ -239,7 +239,9 @@ async function sendConditionalRecordResponse({ msg, chatId, flow, row, typing })
     .replace(/\n{3,}/g, "\n\n")
     .trim();
   const arquivoResolvido = resolveConditionalFile(row);
-  const mensagemFinal = row.mensagemfinal || row.mensagem_final || "";
+  const mensagemFinal = formatTemplate(row.mensagemfinal || row.mensagem_final || "", row)
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 
   await typing();
   let r = null;
