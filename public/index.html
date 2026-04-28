@@ -552,6 +552,9 @@
                 <div class="contact-phone" id="dashBot">Bot ativo</div>
               </div>
             </div>
+            <div class="schedule-actions">
+              <button class="btn btn-small" id="dashToggleBot" style="background:#475569; color:white;">Alternar bot</button>
+            </div>
           </div>
           <div class="contact-item">
             <div class="contact-header">
@@ -802,7 +805,10 @@
           <label for="condDadosCsv">Lista CSV ou nomes separados por vírgula</label>
           <textarea id="condDadosCsv" style="min-height:170px;" placeholder="nome,matricula,material,link,senha,pix,arquivo&#10;João Nascimento,12345,Apostila,https://link.com,Senha: 1234,,apostila.pdf&#10;&#10;Ou simples: Ana Lopes, Josué Lopes, João Nascimento"></textarea>
         </div>
-        <button class="btn btn-success" id="abrirCondItem" style="margin-bottom:14px;">Adicionar aluno/material por formulário</button>
+        <div class="schedule-actions" style="margin-bottom:14px;">
+          <button class="btn btn-success" id="abrirCondItem">Adicionar aluno/material por formulário</button>
+          <button class="btn btn-small" id="restaurarCondPadrao" style="background:#475569; color:white;">Restaurar modelo padrão</button>
+        </div>
         <div class="form-group">
           <label for="condArquivoUpload">Enviar arquivo do fluxo</label>
           <input type="file" id="condArquivoUpload" accept="image/*,audio/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip,.jwpub">
@@ -1092,6 +1098,17 @@
 
     const condCsvHeaders = ['nome', 'matricula', 'telefone', 'material', 'link', 'senha', 'pix', 'arquivo', 'mensagemFinal'];
 
+    function restaurarModeloCondicionalPadrao() {
+      if (!confirm('Restaurar os campos de Fluxos Condicionais para o modelo padrão? A lista CSV atual será substituída pelo cabeçalho vazio.')) return;
+      $('condGatilhos').value = 'pegar material, pega meu material, meu material, material, apostila';
+      $('condPergunta').value = 'Por favor, digite seu *nome e sobrenome*.';
+      $('condCamposBusca').value = 'nome, matricula, telefone';
+      $('condRespostaOk').value = 'Encontrei seu cadastro, {nome}. Segue seu material:';
+      $('condRespostaErro').value = 'Não encontrei seu cadastro. Confira se digitou nome e sobrenome corretamente ou aguarde um instrutor.';
+      $('condDadosCsv').value = condCsvHeaders.join(',');
+      limparFormularioCondItem();
+    }
+
     function csvEscape(value) {
       const text = String(value || '').trim();
       if (/[",\n\r]/.test(text)) {
@@ -1168,7 +1185,26 @@
       setTextIfExists('dashWhatsapp', state.whatsappConectado ? 'Conectado' : 'Aguardando conexão');
       setTextIfExists('dashBot', state.botSilenciado ? 'Bot silenciado' : 'Bot ativo');
       setTextIfExists('dashEnvios', state.enviosSilenciados ? 'Envios silenciados' : 'Envios ativos');
+      if ($('dashToggleBot')) {
+        $('dashToggleBot').textContent = state.botSilenciado ? 'Ativar bot' : 'Silenciar bot';
+      }
     };
+
+    async function salvarSilencioBotValor(silenciarBot) {
+      await fetch('/api/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ silenciarBot })
+      });
+      if ($('silenciarBot')) $('silenciarBot').checked = silenciarBot;
+      if ($('statusSilencioBot')) {
+        $('statusSilencioBot').textContent = silenciarBot
+          ? 'Bot silenciado. Respostas automáticas pausadas.'
+          : 'Bot ativo. Respostas automáticas liberadas.';
+      }
+      window.dashboardState.botSilenciado = silenciarBot;
+      window.atualizarDashboard();
+    }
 
     async function carregarArquivosFluxo() {
       const div = $('listaArquivosFluxo');
@@ -1280,6 +1316,12 @@
 
     $('salvarGroq').addEventListener('click', salvarTudo);
     $('salvarModelo').addEventListener('click', salvarTudo);
+    if ($('dashToggleBot')) {
+      $('dashToggleBot').addEventListener('click', async () => {
+        await salvarSilencioBotValor(!window.dashboardState.botSilenciado);
+      });
+    }
+    if ($('restaurarCondPadrao')) $('restaurarCondPadrao').addEventListener('click', restaurarModeloCondicionalPadrao);
     if ($('abrirCondItem')) $('abrirCondItem').addEventListener('click', abrirModalCondItem);
     if ($('fecharCondItem')) $('fecharCondItem').addEventListener('click', fecharModalCondItem);
     if ($('limparCondItem')) $('limparCondItem').addEventListener('click', limparFormularioCondItem);
@@ -1291,17 +1333,7 @@
     }
     if ($('salvarSilencioBot')) {
       $('salvarSilencioBot').addEventListener('click', async () => {
-        const silenciarBot = $('silenciarBot').checked;
-        await fetch('/api/config', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ silenciarBot })
-        });
-        $('statusSilencioBot').textContent = silenciarBot
-          ? 'Bot silenciado. Respostas automáticas pausadas.'
-          : 'Bot ativo. Respostas automáticas liberadas.';
-        window.dashboardState.botSilenciado = silenciarBot;
-        window.atualizarDashboard();
+        await salvarSilencioBotValor($('silenciarBot').checked);
         alert('Controle do bot salvo!');
       });
     }

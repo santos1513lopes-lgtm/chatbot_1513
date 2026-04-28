@@ -84,9 +84,35 @@ function parseCsv(text) {
 
 function formatTemplate(template, row) {
   return String(template || "").replace(/\{([^}]+)\}/g, (_, key) => {
+    if (!String(key || "").trim()) return "";
     const normalizedKey = normalizeText(key);
-    return row[normalizedKey] || row[key] || `{${key}}`;
+    return row[normalizedKey] || row[key] || "";
   });
+}
+
+function looksLikeFileName(value) {
+  return /\.(pdf|jpg|jpeg|png|webp|gif|mp3|ogg|wav|mp4|doc|docx|xls|xlsx|txt|zip|jwpub)$/i.test(String(value || "").trim());
+}
+
+function resolveConditionalFile(row) {
+  const candidates = [
+    row.arquivo,
+    row.anexo,
+    row.caminho,
+    row.pix,
+    row.link,
+    row.material,
+  ].filter(Boolean);
+
+  for (const candidate of candidates) {
+    if (!looksLikeFileName(candidate)) continue;
+    const fullPath = resolveKnownUploadFile(candidate);
+    if (fullPath) return { fullPath, fileRef: candidate };
+  }
+
+  const direct = row.arquivo || row.anexo || row.caminho;
+  const fullPath = resolveKnownUploadFile(direct);
+  return fullPath ? { fullPath, fileRef: direct } : { fullPath: null, fileRef: direct };
 }
 
 function parseConditionalRows(text) {
@@ -793,13 +819,12 @@ async function handleMessage(msg) {
           const resposta = formatTemplate(flow.respostaEncontrado, row)
             .replace(/\n{3,}/g, "\n\n")
             .trim();
-      const arquivo = row.arquivo || row.anexo || row.caminho;
+      const arquivoResolvido = resolveConditionalFile(row);
       const mensagemFinal = row.mensagemfinal || row.mensagem_final || "";
-      const fullPath = resolveKnownUploadFile(arquivo);
       await typing();
       let r = null;
-      if (fullPath) {
-        const media = MessageMedia.fromFilePath(fullPath);
+      if (arquivoResolvido.fullPath) {
+        const media = MessageMedia.fromFilePath(arquivoResolvido.fullPath);
         r = await whatsappClient.sendMessage(chatId, media, resposta ? { caption: resposta } : undefined);
       } else {
         r = await msg.reply(resposta || "Encontrei seu cadastro.");
