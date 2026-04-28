@@ -502,6 +502,10 @@ app.post("/api/upload/fluxo", (req, res) => {
 
 app.post("/api/whatsapp/send", async (req, res) => {
   try {
+    config = loadConfig();
+    if (config.silenciarEnvios) {
+      return res.status(423).json({ ok: false, erro: "Fluxo de envios está silenciado" });
+    }
     if (!whatsappClient || !whatsappConectado) {
       return res.status(400).json({ ok: false, erro: "WhatsApp não está conectado" });
     }

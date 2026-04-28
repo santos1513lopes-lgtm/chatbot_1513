@@ -468,6 +468,19 @@
     <!-- Aba Agendamentos -->
     <div id="tab-agendamentos" class="tab-content">
       <div class="card">
+        <h2>Controle de envios</h2>
+        <div class="checkbox-group">
+          <input type="checkbox" id="silenciarEnvios">
+          <label for="silenciarEnvios">Silenciar fluxo de envios</label>
+        </div>
+        <p class="dica">
+          Quando ativado, envios agendados, envio em massa e botão Enviar agora ficam pausados. O bot continua respondendo conversas normalmente.
+        </p>
+        <button class="btn btn-primary" id="salvarSilencioEnvios">Salvar controle de envios</button>
+        <div id="statusSilencioEnvios" class="bulk-status"></div>
+      </div>
+
+      <div class="card">
         <h2>🗓️ Agendamento de envios</h2>
         <div class="grid-2">
           <div class="form-group">
@@ -735,6 +748,13 @@
       $('useAI').checked = cfg.useAI !== false;
       $('promptSistema').value = cfg.promptSistema || '';
       $('modeloGroq').value = cfg.model || 'llama-3.1-8b-instant';
+      enviosSilenciados = !!cfg.silenciarEnvios;
+      if ($('silenciarEnvios')) $('silenciarEnvios').checked = enviosSilenciados;
+      if ($('statusSilencioEnvios')) {
+        $('statusSilencioEnvios').textContent = enviosSilenciados
+          ? 'Fluxo de envios silenciado. Nenhum disparo será enviado.'
+          : 'Fluxo de envios ativo.';
+      }
       const handoff = cfg.handoff || {};
       $('handoffAtivo').checked = handoff.ativo !== false;
       $('handoffNumero').value = handoff.numeroAtendente || '557185279135';
@@ -874,6 +894,20 @@
 
     $('salvarGroq').addEventListener('click', salvarTudo);
     $('salvarModelo').addEventListener('click', salvarTudo);
+    if ($('salvarSilencioEnvios')) {
+      $('salvarSilencioEnvios').addEventListener('click', async () => {
+        enviosSilenciados = $('silenciarEnvios').checked;
+        await fetch('/api/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ silenciarEnvios: enviosSilenciados })
+        });
+        $('statusSilencioEnvios').textContent = enviosSilenciados
+          ? 'Fluxo de envios silenciado. Nenhum disparo será enviado.'
+          : 'Fluxo de envios ativo.';
+        alert('Controle de envios salvo!');
+      });
+    }
     $('salvarCondicional').addEventListener('click', async () => {
       const conditionalFlows = [{
         id: 'material-aluno',
@@ -1038,6 +1072,9 @@
     const agDataHora = document.getElementById("agDataHora");
     const agMensagem = document.getElementById("agMensagem");
     const agArquivo = document.getElementById("agArquivo");
+    const silenciarEnvios = document.getElementById("silenciarEnvios");
+    const salvarSilencioEnvios = document.getElementById("salvarSilencioEnvios");
+    const statusSilencioEnvios = document.getElementById("statusSilencioEnvios");
     const salvarAgendamento = document.getElementById("salvarAgendamento");
     const enviarAgora = document.getElementById("enviarAgora");
     const listaAgendamentos = document.getElementById("listaAgendamentos");
@@ -1054,6 +1091,7 @@
     let contatosCache = [];
     let agendamentosCache = [];
     let processandoAgendados = false;
+    let enviosSilenciados = false;
 
     function mostrarErro(mensagem) {
       loginErro.textContent = mensagem;
@@ -1412,6 +1450,10 @@
     }
 
     async function enviarMensagemAgora() {
+      if (enviosSilenciados) {
+        alert("O fluxo de envios está silenciado.");
+        return;
+      }
       enviarAgora.disabled = true;
       enviarAgora.textContent = "Enviando...";
       try {
@@ -1487,6 +1529,9 @@
     }
 
     async function enviarAgendamentoSalvo(id) {
+      if (enviosSilenciados) {
+        throw new Error("O fluxo de envios está silenciado.");
+      }
       const item = agendamentosCache.find((agendamento) => agendamento.id === id);
       if (!item) return;
       await updateDoc(doc(db, "agendamentos", id), {
@@ -1511,6 +1556,7 @@
     }
 
     async function processarAgendadosVencidos() {
+      if (enviosSilenciados) return;
       if (processandoAgendados || !usuarioAtual) return;
       processandoAgendados = true;
       try {
@@ -1587,6 +1633,10 @@
       }
     });
     enviarMassa.addEventListener("click", async () => {
+      if (enviosSilenciados) {
+        alert("O fluxo de envios está silenciado.");
+        return;
+      }
       if (!usuarioAtual) {
         alert("Entre no painel antes de enviar em massa.");
         return;
