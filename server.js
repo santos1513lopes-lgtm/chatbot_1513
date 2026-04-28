@@ -226,6 +226,38 @@ function searchConditionalRecord(flow, texto) {
   }) || null;
 }
 
+function findConditionalRecordByText(texto) {
+  for (const flow of getConditionalFlows()) {
+    const row = searchConditionalRecord(flow, texto);
+    if (row) return { flow, row };
+  }
+  return null;
+}
+
+async function sendConditionalRecordResponse({ msg, chatId, flow, row, typing }) {
+  const resposta = formatTemplate(flow.respostaEncontrado, row)
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+  const arquivoResolvido = resolveConditionalFile(row);
+  const mensagemFinal = row.mensagemfinal || row.mensagem_final || "";
+
+  await typing();
+  let r = null;
+  if (arquivoResolvido.fullPath) {
+    const media = MessageMedia.fromFilePath(arquivoResolvido.fullPath);
+    r = await whatsappClient.sendMessage(chatId, media, resposta ? { caption: resposta } : undefined);
+  } else {
+    r = await msg.reply(resposta || "Encontrei seu cadastro.");
+  }
+  silencio.registrarMensagemDoBot(r);
+
+  if (mensagemFinal) {
+    await delay(1000);
+    const finalMsg = await whatsappClient.sendMessage(chatId, mensagemFinal);
+    silencio.registrarMensagemDoBot(finalMsg);
+  }
+}
+
 // Carregar ou criar config
 function loadConfig() {
   try {
@@ -373,6 +405,11 @@ app.post("/api/silencio-chats", (req, res) => {
   const remover = !!(req.body && req.body.remover);
   if (!chatId) return res.status(400).json({ ok: false, erro: "chatId obrigatório" });
   if (remover) silencio.desilenciarChat(chatId);
+  res.json({ ok: true, chats: silencio.listar() });
+});
+
+app.post("/api/silencio-chats/limpar", (req, res) => {
+  silencio.limparTodos();
   res.json({ ok: true, chats: silencio.listar() });
 });
 
@@ -816,26 +853,8 @@ async function handleMessage(msg) {
         const row = searchConditionalRecord(flow, texto);
         if (row) {
           estadosConversa.delete(chatId);
-          const resposta = formatTemplate(flow.respostaEncontrado, row)
-            .replace(/\n{3,}/g, "\n\n")
-            .trim();
-      const arquivoResolvido = resolveConditionalFile(row);
-      const mensagemFinal = row.mensagemfinal || row.mensagem_final || "";
-      await typing();
-      let r = null;
-      if (arquivoResolvido.fullPath) {
-        const media = MessageMedia.fromFilePath(arquivoResolvido.fullPath);
-        r = await whatsappClient.sendMessage(chatId, media, resposta ? { caption: resposta } : undefined);
-      } else {
-        r = await msg.reply(resposta || "Encontrei seu cadastro.");
-      }
-      silencio.registrarMensagemDoBot(r);
-      if (mensagemFinal) {
-        await delay(1000);
-        const finalMsg = await whatsappClient.sendMessage(chatId, mensagemFinal);
-        silencio.registrarMensagemDoBot(finalMsg);
-      }
-      return;
+          await sendConditionalRecordResponse({ msg, chatId, flow, row, typing });
+          return;
         }
 
         const tentativas = (estadoAtual.tentativas || 0) + 1;
@@ -867,6 +886,18 @@ async function handleMessage(msg) {
       await typing();
       const r = await msg.reply(conditionalFlow.pergunta || "Digite os dados para consulta.");
       silencio.registrarMensagemDoBot(r);
+      return;
+    }
+
+    const conditionalRecord = findConditionalRecordByText(texto);
+    if (conditionalRecord) {
+      await sendConditionalRecordResponse({
+        msg,
+        chatId,
+        flow: conditionalRecord.flow,
+        row: conditionalRecord.row,
+        typing,
+      });
       return;
     }
 

@@ -71,6 +71,11 @@ function createSilencio(rootDir) {
     return [...chatsSilenciados];
   }
 
+  function limparTodos() {
+    chatsSilenciados = new Set();
+    save();
+  }
+
   function textoEhOptOut(texto) {
     const t = (texto || "").trim().toLowerCase();
     if (t.length < 3 || t.length > 40) return false;
@@ -94,6 +99,7 @@ function createSilencio(rootDir) {
     desilenciarChat,
     estaSilenciado,
     listar,
+    limparTodos,
     textoEhOptOut,
     reload: load,
   };
