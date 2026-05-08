@@ -806,8 +806,32 @@
           <label for="condDadosCsv">Lista CSV ou nomes separados por vírgula</label>
           <textarea id="condDadosCsv" style="min-height:170px;" placeholder="nome,matricula,material,link,senha,pix,arquivo&#10;João Nascimento,12345,Apostila,https://link.com,Senha: 1234,,apostila.pdf&#10;&#10;Ou simples: Ana Lopes, Josué Lopes, João Nascimento"></textarea>
         </div>
+        <div class="card" style="margin:14px 0; padding:16px;">
+          <h2>Importar lista de alunos</h2>
+          <p class="dica">
+            Use um CSV do Google Sheets com colunas como nome, matricula, telefone, material, link, senha e arquivo. Se a planilha tiver apenas uma coluna com nomes, o bot também consegue procurar por esses nomes.
+          </p>
+          <div class="form-group">
+            <label for="condCsvUrl">Link CSV publicado do Google Sheets</label>
+            <input type="url" id="condCsvUrl" placeholder="https://docs.google.com/spreadsheets/d/e/.../pub?gid=...&single=true&output=csv">
+          </div>
+          <div class="form-group">
+            <label for="condCsvArquivo">Ou escolher arquivo CSV baixado do Sheets</label>
+            <input type="file" id="condCsvArquivo" accept=".csv,text/csv">
+          </div>
+          <div class="checkbox-group">
+            <input type="checkbox" id="condCsvAnexar">
+            <label for="condCsvAnexar">Acrescentar à lista atual em vez de substituir</label>
+          </div>
+          <div class="schedule-actions">
+            <button class="btn btn-primary" id="importarCondCsvUrl">Importar link CSV</button>
+            <button class="btn btn-success" id="importarCondCsvArquivo">Importar arquivo CSV</button>
+          </div>
+          <div id="statusImportarCondCsv" class="bulk-status"></div>
+        </div>
         <div class="schedule-actions" style="margin-bottom:14px;">
           <button class="btn btn-success" id="abrirCondItem">Adicionar aluno/material por formulário</button>
+          <button class="btn btn-small" id="limparCondLista" style="background:#f59e0b; color:white;">Limpar lista mantendo cabeçalho</button>
           <button class="btn btn-small" id="restaurarCondPadrao" style="background:#475569; color:white;">Restaurar modelo padrão</button>
         </div>
         <div class="form-group">
@@ -1110,6 +1134,14 @@
       limparFormularioCondItem();
     }
 
+    function limparListaCondicionalMantendoCabecalho() {
+      if (!confirm('Apagar todos os alunos da Lista CSV e manter apenas o cabeçalho?')) return;
+      $('condDadosCsv').value = condCsvHeaders.join(',');
+      if ($('statusImportarCondCsv')) {
+        $('statusImportarCondCsv').textContent = 'Lista limpa. Apenas o cabeçalho foi mantido. Clique em "Salvar fluxo condicional" para gravar.';
+      }
+    }
+
     function csvEscape(value) {
       const text = String(value || '').trim();
       if (/[",\n\r]/.test(text)) {
@@ -1170,6 +1202,96 @@
       $('condDadosCsv').value = `${$('condDadosCsv').value.trim()}\n${line}`;
       limparFormularioCondItem();
       alert('Aluno/material adicionado na lista CSV.');
+    }
+
+    function contarLinhasCsvCondicional(csv) {
+      const linhas = String(csv || '').split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+      if (!linhas.length) return 0;
+      const primeira = linhas[0].toLowerCase();
+      const temCabecalho = ['nome', 'matricula', 'matrícula', 'telefone', 'material', 'link', 'senha', 'arquivo']
+        .some(header => primeira.split(',').map(v => v.trim()).includes(header));
+      return Math.max(0, linhas.length - (temCabecalho ? 1 : 0));
+    }
+
+    function aplicarCsvCondicional(csv, origem) {
+      const texto = String(csv || '').replace(/\u0000/g, '').trim();
+      const status = $('statusImportarCondCsv');
+      if (!texto) {
+        status.textContent = 'Nenhum dado encontrado no CSV.';
+        return false;
+      }
+
+      const anexar = $('condCsvAnexar')?.checked;
+      const atual = $('condDadosCsv').value.trim();
+      if (!anexar && atual && !confirm('Substituir a lista CSV atual por esta importação?')) {
+        status.textContent = 'Importação cancelada.';
+        return false;
+      }
+
+      $('condDadosCsv').value = anexar && atual ? `${atual}\n${texto}` : texto;
+      const total = contarLinhasCsvCondicional(texto);
+      status.textContent = `${origem} importado. ${total || 'Alguns'} registro(s) adicionados ao campo Lista CSV. Clique em "Salvar fluxo condicional" para gravar.`;
+      return true;
+    }
+
+    function lerArquivoTexto(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsText(file, 'utf-8');
+      });
+    }
+
+    async function importarCsvCondicionalPorUrl() {
+      const url = $('condCsvUrl').value.trim();
+      const status = $('statusImportarCondCsv');
+      if (!url) {
+        alert('Cole o link CSV publicado do Google Sheets.');
+        return;
+      }
+
+      $('importarCondCsvUrl').disabled = true;
+      $('importarCondCsvUrl').textContent = 'Importando...';
+      status.textContent = 'Baixando planilha...';
+      try {
+        const response = await fetch('/api/csv-url', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url })
+        });
+        const json = await response.json();
+        if (!json.ok) throw new Error(json.erro || 'Não foi possível baixar a planilha.');
+        aplicarCsvCondicional(json.csv, 'CSV do Google Sheets');
+      } catch (error) {
+        status.textContent = error.message || 'Erro ao importar CSV.';
+      } finally {
+        $('importarCondCsvUrl').disabled = false;
+        $('importarCondCsvUrl').textContent = 'Importar link CSV';
+      }
+    }
+
+    async function importarCsvCondicionalPorArquivo() {
+      const input = $('condCsvArquivo');
+      const file = input.files && input.files[0];
+      const status = $('statusImportarCondCsv');
+      if (!file) {
+        alert('Escolha um arquivo CSV primeiro.');
+        return;
+      }
+
+      $('importarCondCsvArquivo').disabled = true;
+      $('importarCondCsvArquivo').textContent = 'Importando...';
+      status.textContent = 'Lendo arquivo CSV...';
+      try {
+        const texto = await lerArquivoTexto(file);
+        if (aplicarCsvCondicional(texto, 'Arquivo CSV')) input.value = '';
+      } catch (error) {
+        status.textContent = error.message || 'Erro ao ler arquivo CSV.';
+      } finally {
+        $('importarCondCsvArquivo').disabled = false;
+        $('importarCondCsvArquivo').textContent = 'Importar arquivo CSV';
+      }
     }
 
     function setTextIfExists(id, value) {
@@ -1323,10 +1445,13 @@
       });
     }
     if ($('restaurarCondPadrao')) $('restaurarCondPadrao').addEventListener('click', restaurarModeloCondicionalPadrao);
+    if ($('limparCondLista')) $('limparCondLista').addEventListener('click', limparListaCondicionalMantendoCabecalho);
     if ($('abrirCondItem')) $('abrirCondItem').addEventListener('click', abrirModalCondItem);
     if ($('fecharCondItem')) $('fecharCondItem').addEventListener('click', fecharModalCondItem);
     if ($('limparCondItem')) $('limparCondItem').addEventListener('click', limparFormularioCondItem);
     if ($('adicionarCondItem')) $('adicionarCondItem').addEventListener('click', adicionarItemCondicional);
+    if ($('importarCondCsvUrl')) $('importarCondCsvUrl').addEventListener('click', importarCsvCondicionalPorUrl);
+    if ($('importarCondCsvArquivo')) $('importarCondCsvArquivo').addEventListener('click', importarCsvCondicionalPorArquivo);
     if ($('condItemModal')) {
       $('condItemModal').addEventListener('click', (event) => {
         if (event.target.id === 'condItemModal') fecharModalCondItem();
