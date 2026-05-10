@@ -728,6 +728,22 @@
 
       <div class="card">
         <h2>📣 Envio em massa</h2>
+        <div class="card" style="margin:0 0 14px; padding:16px;">
+          <h2>Importar campanha por CSV</h2>
+          <p class="dica">
+            Use colunas: nome, telefone, mensagem e mensagemFinal. Se a coluna mensagem ficar vazia, o sistema usa o campo Mensagem abaixo com variáveis como {nome}.
+          </p>
+          <div class="form-group">
+            <label for="massaCsvArquivo">Arquivo CSV da campanha</label>
+            <input type="file" id="massaCsvArquivo" accept=".csv,text/csv">
+          </div>
+          <div class="schedule-actions">
+            <button class="btn btn-primary" id="importarMassaCsv">Importar CSV para campanha</button>
+            <button class="btn btn-small" id="limparMassaCsv" style="background:#475569; color:white;">Limpar CSV importado</button>
+          </div>
+          <div id="massaCsvResumo" class="bulk-status">Nenhuma lista CSV importada.</div>
+          <div id="massaCsvPreview" class="bulk-list" style="display:none; margin-top:12px;"></div>
+        </div>
         <div class="form-group">
           <label>Selecionar contatos</label>
           <div id="listaContatosMassa" class="bulk-list">
@@ -1664,6 +1680,11 @@
     const enviarAgora = document.getElementById("enviarAgora");
     const listaAgendamentos = document.getElementById("listaAgendamentos");
     const listaContatosMassa = document.getElementById("listaContatosMassa");
+    const massaCsvArquivo = document.getElementById("massaCsvArquivo");
+    const importarMassaCsv = document.getElementById("importarMassaCsv");
+    const limparMassaCsv = document.getElementById("limparMassaCsv");
+    const massaCsvResumo = document.getElementById("massaCsvResumo");
+    const massaCsvPreview = document.getElementById("massaCsvPreview");
     const massaLimite = document.getElementById("massaLimite");
     const massaIntervalo = document.getElementById("massaIntervalo");
     const salvarMassa = document.getElementById("salvarMassa");
@@ -1675,6 +1696,7 @@
     let cancelarEscutaAgendamentos = null;
     let contatosCache = [];
     let agendamentosCache = [];
+    let contatosMassaCsv = [];
     let processandoAgendados = false;
     let enviosSilenciados = !!window.enviosSilenciados;
 
@@ -1742,6 +1764,25 @@
     }
 
     function parseCsvLinhaCliente(line) {
+      const delimitador = (() => {
+        let virgulas = 0;
+        let pontosVirgula = 0;
+        let dentroAspas = false;
+        for (let i = 0; i < line.length; i++) {
+          const char = line[i];
+          const next = line[i + 1];
+          if (char === '"' && dentroAspas && next === '"') {
+            i++;
+          } else if (char === '"') {
+            dentroAspas = !dentroAspas;
+          } else if (!dentroAspas && char === ",") {
+            virgulas++;
+          } else if (!dentroAspas && char === ";") {
+            pontosVirgula++;
+          }
+        }
+        return pontosVirgula > virgulas ? ";" : ",";
+      })();
       const values = [];
       let current = "";
       let inQuotes = false;
@@ -1753,7 +1794,7 @@
           i++;
         } else if (char === '"') {
           inQuotes = !inQuotes;
-        } else if (char === "," && !inQuotes) {
+        } else if (char === delimitador && !inQuotes) {
           values.push(current.trim());
           current = "";
         } else {
@@ -1779,6 +1820,103 @@
         contatos.push({ nome, telefone, tag });
       }
       return contatos;
+    }
+
+    function normalizarCabecalhoCsv(valor) {
+      return String(valor || "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .trim()
+        .toLowerCase();
+    }
+
+    function parseCampanhaCsv(csv) {
+      const linhas = String(csv || "").split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+      if (!linhas.length) return [];
+      const primeiraLinha = parseCsvLinhaCliente(linhas[0]).map(normalizarCabecalhoCsv);
+      const cabecalhosConhecidos = ["nome", "telefone", "whatsapp", "numero", "número", "mensagem", "mensagemfinal", "mensagem_final"];
+      const temCabecalho = primeiraLinha.some((item) => cabecalhosConhecidos.includes(item));
+      const headers = temCabecalho ? primeiraLinha : ["nome", "telefone", "mensagem", "mensagemfinal"];
+      const dados = temCabecalho ? linhas.slice(1) : linhas;
+      const contatos = [];
+      const telefones = new Set();
+
+      for (const linha of dados) {
+        const colunas = parseCsvLinhaCliente(linha);
+        const row = {};
+        headers.forEach((header, index) => {
+          row[header] = colunas[index] || "";
+        });
+        const nome = (row.nome || row.aluno || row.cliente || colunas[0] || "").trim();
+        const telefone = normalizarTelefone(row.telefone || row.whatsapp || row.numero || row["número"] || colunas[1] || "");
+        const mensagem = (row.mensagem || colunas[2] || "").trim();
+        const mensagemFinal = (row.mensagemfinal || row.mensagem_final || row.finalizacao || row["finalização"] || colunas[3] || "").trim();
+        if (!nome || !telefone) continue;
+        if (telefones.has(telefone)) continue;
+        telefones.add(telefone);
+        contatos.push({
+          id: `csv-${telefone}`,
+          origem: "csv",
+          nome,
+          telefone,
+          mensagem,
+          mensagemFinal,
+        });
+      }
+      return contatos;
+    }
+
+    function aplicarVariaveisMensagem(texto, contato) {
+      return String(texto || "").replace(/\{([^}]+)\}/g, (_, chave) => {
+        const key = normalizarCabecalhoCsv(chave);
+        if (key === "nome") return contato.nome || "";
+        if (key === "telefone" || key === "whatsapp") return contato.telefone || "";
+        return contato[key] || "";
+      });
+    }
+
+    function getContatosMassaSelecionados() {
+      const idsSelecionados = Array.from(listaContatosMassa.querySelectorAll("input:checked")).map((input) => input.value);
+      const contatosSelecionados = contatosCache
+        .filter((contato) => idsSelecionados.includes(contato.id))
+        .map((contato) => ({ ...contato, origem: "crm" }));
+      return [...contatosSelecionados, ...contatosMassaCsv];
+    }
+
+    function atualizarPreviewMassaCsv() {
+      if (!massaCsvPreview || !massaCsvResumo) return;
+      if (!contatosMassaCsv.length) {
+        massaCsvResumo.textContent = "Nenhuma lista CSV importada.";
+        massaCsvPreview.style.display = "none";
+        massaCsvPreview.innerHTML = "";
+        return;
+      }
+
+      massaCsvResumo.textContent = `${contatosMassaCsv.length} contato(s) importado(s) do CSV para esta campanha.`;
+      massaCsvPreview.style.display = "block";
+      massaCsvPreview.innerHTML = contatosMassaCsv.slice(0, 30).map((contato, index) => {
+        const msg = contato.mensagem ? `<div class="contact-meta">${escapeText(contato.mensagem)}</div>` : "";
+        const finalizacao = contato.mensagemFinal ? `<div class="contact-meta">Finalização: ${escapeText(contato.mensagemFinal)}</div>` : "";
+        return `
+          <div class="bulk-contact" style="align-items:flex-start;">
+            <span>${index + 1}.</span>
+            <span>
+              <strong>${escapeText(contato.nome)}</strong> - ${escapeText(contato.telefone)}
+              ${msg}
+              ${finalizacao}
+            </span>
+          </div>
+        `;
+      }).join("") + (contatosMassaCsv.length > 30 ? `<div class="contact-meta">Mostrando 30 de ${contatosMassaCsv.length} contatos importados.</div>` : "");
+    }
+
+    function lerArquivoTexto(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsText(file, "utf-8");
+      });
     }
 
     function escapeText(valor) {
@@ -2189,14 +2327,44 @@
 
     salvarAgendamento.addEventListener("click", salvarNovoAgendamento);
     enviarAgora.addEventListener("click", enviarMensagemAgora);
+    importarMassaCsv.addEventListener("click", async () => {
+      const file = massaCsvArquivo.files && massaCsvArquivo.files[0];
+      if (!file) {
+        alert("Escolha um arquivo CSV primeiro.");
+        return;
+      }
+
+      importarMassaCsv.disabled = true;
+      importarMassaCsv.textContent = "Importando...";
+      massaCsvResumo.textContent = "Lendo arquivo CSV...";
+      try {
+        const texto = await lerArquivoTexto(file);
+        const contatos = parseCampanhaCsv(texto);
+        if (!contatos.length) {
+          throw new Error("Nenhum contato válido encontrado. Use colunas nome e telefone.");
+        }
+        contatosMassaCsv = contatos;
+        massaCsvArquivo.value = "";
+        atualizarPreviewMassaCsv();
+      } catch (error) {
+        massaCsvResumo.textContent = error.message || "Erro ao importar CSV.";
+      } finally {
+        importarMassaCsv.disabled = false;
+        importarMassaCsv.textContent = "Importar CSV para campanha";
+      }
+    });
+    limparMassaCsv.addEventListener("click", () => {
+      contatosMassaCsv = [];
+      if (massaCsvArquivo) massaCsvArquivo.value = "";
+      atualizarPreviewMassaCsv();
+    });
     salvarMassa.addEventListener("click", async () => {
       if (!usuarioAtual) {
         alert("Entre no painel antes de agendar em massa.");
         return;
       }
-      const idsSelecionados = Array.from(listaContatosMassa.querySelectorAll("input:checked")).map((input) => input.value);
       const limite = Math.max(1, Math.min(50, Number(massaLimite.value) || 10));
-      const contatosSelecionados = contatosCache.filter((contato) => idsSelecionados.includes(contato.id)).slice(0, limite);
+      const contatosSelecionados = getContatosMassaSelecionados().slice(0, limite);
       const temArquivo = !!(agArquivo.files && agArquivo.files[0]);
       const mensagem = agMensagem.value.trim() || (temArquivo ? MENSAGEM_PADRAO_ANEXO : "");
       const mensagemFinal = agMensagemFinal.value.trim();
@@ -2204,14 +2372,15 @@
       const dataHora = agDataHora.value;
 
       if (!contatosSelecionados.length) {
-        alert("Selecione pelo menos um contato.");
+        alert("Selecione pelo menos um contato ou importe uma lista CSV.");
         return;
       }
       if (!dataHora) {
         alert("Informe a data e hora do agendamento.");
         return;
       }
-      if (!mensagem && !temArquivo && !mensagemFinal) {
+      const temMensagemCsv = contatosSelecionados.some((contato) => contato.mensagem || contato.mensagemFinal);
+      if (!mensagem && !temArquivo && !mensagemFinal && !temMensagemCsv) {
         alert("Informe uma mensagem, finalização ou escolha um arquivo.");
         return;
       }
@@ -2225,18 +2394,20 @@
         for (let i = 0; i < contatosSelecionados.length; i++) {
           const contato = contatosSelecionados[i];
           massaStatus.textContent = `Agendando ${i + 1}/${contatosSelecionados.length}: ${contato.nome}`;
+          const mensagemContato = contato.mensagem || aplicarVariaveisMensagem(mensagem, contato);
+          const mensagemFinalContato = contato.mensagemFinal || aplicarVariaveisMensagem(mensagemFinal, contato);
           await addDoc(collection(db, "agendamentos"), {
             uid: usuarioAtual.uid,
             contatoId: contato.id,
             contatoNome: contato.nome || "",
             telefone: contato.telefone || "",
-            mensagem,
-            mensagemFinal,
+            mensagem: mensagemContato,
+            mensagemFinal: mensagemFinalContato,
             delayBlocos,
             arquivo,
             dataHora: dataTimestamp,
             status: "pendente",
-            tipoEnvio: "massa_agendado",
+            tipoEnvio: contato.origem === "csv" ? "massa_csv_agendado" : "massa_agendado",
             criadoEm: serverTimestamp(),
             atualizadoEm: serverTimestamp()
           });
@@ -2258,20 +2429,20 @@
         alert("Entre no painel antes de enviar em massa.");
         return;
       }
-      const idsSelecionados = Array.from(listaContatosMassa.querySelectorAll("input:checked")).map((input) => input.value);
       const limite = Math.max(1, Math.min(50, Number(massaLimite.value) || 10));
       const intervalo = Math.max(10, Math.min(600, Number(massaIntervalo.value) || 30));
-      const contatosSelecionados = contatosCache.filter((contato) => idsSelecionados.includes(contato.id)).slice(0, limite);
+      const contatosSelecionados = getContatosMassaSelecionados().slice(0, limite);
       const temArquivo = !!(agArquivo.files && agArquivo.files[0]);
       const mensagem = agMensagem.value.trim() || (temArquivo ? MENSAGEM_PADRAO_ANEXO : "");
       const mensagemFinal = agMensagemFinal.value.trim();
       const delayBlocos = Math.max(0, Math.min(120, Number(agDelayBlocos.value) || 0));
 
       if (!contatosSelecionados.length) {
-        alert("Selecione pelo menos um contato.");
+        alert("Selecione pelo menos um contato ou importe uma lista CSV.");
         return;
       }
-      if (!mensagem && !temArquivo && !mensagemFinal) {
+      const temMensagemCsv = contatosSelecionados.some((contato) => contato.mensagem || contato.mensagemFinal);
+      if (!mensagem && !temArquivo && !mensagemFinal && !temMensagemCsv) {
         alert("Informe uma mensagem, finalização ou escolha um arquivo.");
         return;
       }
@@ -2284,13 +2455,15 @@
         for (let i = 0; i < contatosSelecionados.length; i++) {
           const contato = contatosSelecionados[i];
           massaStatus.textContent = `Enviando ${i + 1}/${contatosSelecionados.length}: ${contato.nome}`;
+          const mensagemContato = contato.mensagem || aplicarVariaveisMensagem(mensagem, contato);
+          const mensagemFinalContato = contato.mensagemFinal || aplicarVariaveisMensagem(mensagemFinal, contato);
           const dados = {
             uid: usuarioAtual.uid,
             contatoId: contato.id,
             contatoNome: contato.nome || "",
             telefone: contato.telefone || "",
-            mensagem,
-            mensagemFinal,
+            mensagem: mensagemContato,
+            mensagemFinal: mensagemFinalContato,
             delayBlocos,
             arquivo,
             dataHora: null,
@@ -2302,7 +2475,7 @@
           await addDoc(collection(db, "agendamentos"), {
             ...dados,
             enviadoEm: serverTimestamp(),
-            tipoEnvio: "massa"
+            tipoEnvio: contato.origem === "csv" ? "massa_csv" : "massa"
           });
           if (i < contatosSelecionados.length - 1) {
             await new Promise((resolve) => setTimeout(resolve, intervalo * 1000));

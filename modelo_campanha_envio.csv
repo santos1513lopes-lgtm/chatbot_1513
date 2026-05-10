@@ -1,0 +1,4 @@
+nome,telefone,mensagem,mensagemFinal
+Ana Lopes,5571999990001,"Ola, {nome}! Segue uma comunicacao da Escola de Pioneiros.","Qualquer duvida, fale com os instrutores."
+Josue Lopes,5571999990002,"Ola, {nome}! Lembre-se de conferir o material enviado.","Bons estudos!"
+Joao Nascimento,5571999990003,,"Obrigado por acompanhar os avisos da Escola de Pioneiros."
