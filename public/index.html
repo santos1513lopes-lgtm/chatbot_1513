@@ -109,7 +109,12 @@
       padding: 8px 0 20px;
       border-bottom: 1px solid rgba(255,255,255,0.1);
       margin-bottom: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
     }
+    .header-title { min-width: 0; }
     header h1 { font-size: 1.8rem; margin-bottom: 8px; }
     header p { opacity: 0.8; font-size: 0.95rem; }
     
@@ -429,9 +434,19 @@
     .modal-header h2 { margin: 0; }
 
     .theme-toggle {
+      width: 44px;
+      height: 44px;
+      flex: 0 0 44px;
+      border-radius: 10px;
+      border: 2px solid rgba(255,255,255,0.76);
       background: rgba(255,255,255,0.08);
-      border: 1px solid rgba(255,255,255,0.14);
       color: #fff;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.1rem;
+      cursor: pointer;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.18);
     }
     body.theme-light .sidebar {
       background: #075e54;
@@ -505,9 +520,9 @@
       color: #334155;
     }
     body.theme-light .theme-toggle {
-      background: rgba(255,255,255,0.14);
-      border-color: rgba(255,255,255,0.2);
-      color: #fff;
+      background: #ffffff;
+      border-color: #10231f;
+      color: #10231f;
     }
     
     @media (max-width: 600px) {
@@ -583,7 +598,6 @@
       </div>
 
       <div class="sidebar-footer">
-        <button class="btn btn-small theme-toggle" id="toggleTheme" type="button">Tema claro</button>
         <a href="https://wa.me/557185279135" target="_blank" class="btn btn-success btn-small" style="text-decoration:none; text-align:center;">Fale Comigo</a>
         <button class="btn btn-small" id="btnSair" style="background:#475569; color:white;">Sair</button>
       </div>
@@ -592,8 +606,11 @@
     <main class="main-content">
       <div class="container">
         <header>
-          <h1>Agente de IA + Chatbot WhatsApp</h1>
-          <p>Gerencie contatos, agendamentos, fluxos e IA em um painel único.</p>
+          <div class="header-title">
+            <h1>Agente de IA + Chatbot WhatsApp</h1>
+            <p>Gerencie contatos, agendamentos, fluxos e IA em um painel único.</p>
+          </div>
+          <button class="theme-toggle" id="toggleTheme" type="button" aria-label="Alternar tema" title="Alternar para tema claro">☀️</button>
         </header>
 
     <!-- Aba Dashboard -->
@@ -1080,8 +1097,9 @@
       const modoClaro = tema === 'light';
       document.body.classList.toggle('theme-light', modoClaro);
       if (toggleTheme) {
-        toggleTheme.textContent = modoClaro ? 'Tema escuro' : 'Tema claro';
+        toggleTheme.textContent = modoClaro ? '🌙' : '☀️';
         toggleTheme.title = modoClaro ? 'Alternar para tema escuro' : 'Alternar para tema claro';
+        toggleTheme.setAttribute('aria-label', toggleTheme.title);
       }
     }
 
