@@ -847,6 +847,23 @@
           </div>
           <div id="massaCsvResumo" class="bulk-status">Nenhuma lista CSV importada.</div>
           <div id="massaCsvPreview" class="bulk-list" style="display:none; margin-top:12px;"></div>
+          <div class="grid-2" style="margin-top:12px;">
+            <div class="form-group">
+              <label for="massaListaNome">Nome para salvar esta lista</label>
+              <input type="text" id="massaListaNome" placeholder="Ex: Alunos ESP 2026">
+            </div>
+            <div class="form-group">
+              <label>&nbsp;</label>
+              <button class="btn btn-success" id="salvarMassaCsvLista" type="button">Salvar lista CSV</button>
+            </div>
+          </div>
+          <div id="massaListasStatus" class="bulk-status"></div>
+          <div class="form-group" style="margin-top:12px;">
+            <label>Listas CSV salvas</label>
+            <div id="massaListasSalvas" class="bulk-list">
+              <div class="empty-state">Entre no painel para carregar suas listas CSV salvas.</div>
+            </div>
+          </div>
         </div>
         <div class="form-group">
           <label>Selecionar contatos</label>
@@ -1810,6 +1827,10 @@
     const limparMassaCsv = document.getElementById("limparMassaCsv");
     const massaCsvResumo = document.getElementById("massaCsvResumo");
     const massaCsvPreview = document.getElementById("massaCsvPreview");
+    const massaListaNome = document.getElementById("massaListaNome");
+    const salvarMassaCsvLista = document.getElementById("salvarMassaCsvLista");
+    const massaListasStatus = document.getElementById("massaListasStatus");
+    const massaListasSalvas = document.getElementById("massaListasSalvas");
     const massaLimite = document.getElementById("massaLimite");
     const massaIntervalo = document.getElementById("massaIntervalo");
     const salvarMassa = document.getElementById("salvarMassa");
@@ -1819,8 +1840,10 @@
     let usuarioAtual = null;
     let cancelarEscutaContatos = null;
     let cancelarEscutaAgendamentos = null;
+    let cancelarEscutaListasCsv = null;
     let contatosCache = [];
     let agendamentosCache = [];
+    let listasCsvCache = [];
     let contatosMassaCsv = [];
     let processandoAgendados = false;
     let enviosSilenciados = !!window.enviosSilenciados;
@@ -2033,6 +2056,118 @@
           </div>
         `;
       }).join("") + (contatosMassaCsv.length > 30 ? `<div class="contact-meta">Mostrando 30 de ${contatosMassaCsv.length} contatos importados.</div>` : "");
+    }
+
+    function prepararContatoCsvSalvo(contato, index = 0) {
+      const telefone = normalizarTelefone(contato.telefone || "");
+      return {
+        id: contato.id || `csv-${telefone || index}`,
+        origem: "csv",
+        nome: String(contato.nome || "").trim(),
+        telefone,
+        mensagem: String(contato.mensagem || "").trim(),
+        mensagemFinal: String(contato.mensagemFinal || "").trim(),
+      };
+    }
+
+    function renderListasCsvSalvas(snapshot) {
+      const listas = [];
+      snapshot.forEach((item) => listas.push({ id: item.id, ...item.data() }));
+      listas.sort((a, b) => {
+        const da = a.criadoEm?.toMillis ? a.criadoEm.toMillis() : 0;
+        const dbb = b.criadoEm?.toMillis ? b.criadoEm.toMillis() : 0;
+        return dbb - da;
+      });
+      listasCsvCache = listas;
+      if (!massaListasSalvas) return;
+      if (!listas.length) {
+        massaListasSalvas.innerHTML = `<div class="empty-state">Nenhuma lista CSV salva ainda.</div>`;
+        return;
+      }
+      massaListasSalvas.innerHTML = listas.map((lista) => {
+        const total = Number(lista.totalContatos || (Array.isArray(lista.contatos) ? lista.contatos.length : 0));
+        return `
+          <div class="contact-item">
+            <div class="contact-header">
+              <div>
+                <div class="contact-name">${escapeText(lista.nome || "Lista sem nome")}</div>
+                <div class="contact-phone">${total} contato(s)</div>
+              </div>
+              <div class="schedule-actions" style="margin-top:0;">
+                <button class="btn btn-small btn-success" data-usar-lista-csv="${lista.id}">Usar lista</button>
+                <button class="btn btn-small" style="background:#dc2626; color:white;" data-excluir-lista-csv="${lista.id}">Excluir</button>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function escutarListasCsv(user) {
+      if (cancelarEscutaListasCsv) cancelarEscutaListasCsv();
+      if (!user) {
+        listasCsvCache = [];
+        if (massaListasSalvas) {
+          massaListasSalvas.innerHTML = `<div class="empty-state">Entre no painel para carregar suas listas CSV salvas.</div>`;
+        }
+        return;
+      }
+      const listasQuery = query(collection(db, "listasCsvCampanha"), where("uid", "==", user.uid));
+      cancelarEscutaListasCsv = onSnapshot(listasQuery, renderListasCsvSalvas, () => {
+        if (massaListasSalvas) {
+          massaListasSalvas.innerHTML = `<div class="empty-state">Não foi possível carregar listas CSV. Confira as regras do Firestore.</div>`;
+        }
+      });
+    }
+
+    async function salvarListaCsvAtual() {
+      if (!usuarioAtual) {
+        alert("Entre no painel antes de salvar uma lista CSV.");
+        return;
+      }
+      if (!contatosMassaCsv.length) {
+        alert("Importe uma lista CSV antes de salvar.");
+        return;
+      }
+      const nome = (massaListaNome.value || "").trim();
+      if (!nome) {
+        alert("Informe um nome para a lista CSV.");
+        massaListaNome.focus();
+        return;
+      }
+      salvarMassaCsvLista.disabled = true;
+      salvarMassaCsvLista.textContent = "Salvando...";
+      massaListasStatus.textContent = "Salvando lista CSV...";
+      try {
+        const contatos = contatosMassaCsv.map(prepararContatoCsvSalvo).filter((contato) => contato.nome && contato.telefone);
+        if (!contatos.length) throw new Error("A lista não tem contatos válidos para salvar.");
+        await addDoc(collection(db, "listasCsvCampanha"), {
+          uid: usuarioAtual.uid,
+          nome,
+          contatos,
+          totalContatos: contatos.length,
+          criadoEm: serverTimestamp(),
+          atualizadoEm: serverTimestamp()
+        });
+        massaListasStatus.textContent = `Lista salva: ${nome} (${contatos.length} contato(s)).`;
+        massaListaNome.value = "";
+      } catch (error) {
+        massaListasStatus.textContent = `Erro ao salvar lista CSV: ${error.message || "falha desconhecida"}`;
+      } finally {
+        salvarMassaCsvLista.disabled = false;
+        salvarMassaCsvLista.textContent = "Salvar lista CSV";
+      }
+    }
+
+    function usarListaCsvSalva(id) {
+      const lista = listasCsvCache.find((item) => item.id === id);
+      if (!lista || !Array.isArray(lista.contatos)) {
+        alert("Lista CSV não encontrada.");
+        return;
+      }
+      contatosMassaCsv = lista.contatos.map(prepararContatoCsvSalvo).filter((contato) => contato.nome && contato.telefone);
+      atualizarPreviewMassaCsv();
+      massaListasStatus.textContent = `Lista carregada: ${lista.nome || "Lista CSV"} (${contatosMassaCsv.length} contato(s)).`;
     }
 
     function lerArquivoTexto(file) {
@@ -2501,6 +2636,22 @@
       if (massaCsvArquivo) massaCsvArquivo.value = "";
       atualizarPreviewMassaCsv();
     });
+    salvarMassaCsvLista.addEventListener("click", salvarListaCsvAtual);
+    massaListasSalvas.addEventListener("click", async (event) => {
+      const botaoUsar = event.target.closest("[data-usar-lista-csv]");
+      const botaoExcluir = event.target.closest("[data-excluir-lista-csv]");
+      try {
+        if (botaoUsar) {
+          usarListaCsvSalva(botaoUsar.dataset.usarListaCsv);
+        }
+        if (botaoExcluir && confirm("Excluir esta lista CSV salva?")) {
+          await deleteDoc(doc(db, "listasCsvCampanha", botaoExcluir.dataset.excluirListaCsv));
+          massaListasStatus.textContent = "Lista CSV excluída.";
+        }
+      } catch (error) {
+        alert(error.message || "Não foi possível concluir a ação.");
+      }
+    });
     salvarMassa.addEventListener("click", async () => {
       if (!usuarioAtual) {
         alert("Entre no painel antes de agendar em massa.");
@@ -2662,6 +2813,7 @@
       }
       escutarContatos(user);
       escutarAgendamentos(user);
+      escutarListasCsv(user);
     });
   </script>
 </body>
