@@ -12,6 +12,10 @@
       min-height: 100vh;
       color: #eee;
     }
+    body.theme-light {
+      background: #f3f7f5;
+      color: #10231f;
+    }
     .container { max-width: 1180px; margin: 0 auto; }
     .crm-layout {
       display: grid;
@@ -423,6 +427,88 @@
       margin-bottom: 16px;
     }
     .modal-header h2 { margin: 0; }
+
+    .theme-toggle {
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.14);
+      color: #fff;
+    }
+    body.theme-light .sidebar {
+      background: #075e54;
+      border-right-color: rgba(7,94,84,0.22);
+    }
+    body.theme-light .brand {
+      border-bottom-color: rgba(255,255,255,0.18);
+    }
+    body.theme-light .brand-subtitle,
+    body.theme-light .tab-btn {
+      color: rgba(255,255,255,0.84);
+    }
+    body.theme-light .tab-btn.active {
+      background: #25d366;
+      border-color: #25d366;
+      color: #073b33;
+    }
+    body.theme-light .tab-btn:hover:not(.active) {
+      background: rgba(255,255,255,0.12);
+    }
+    body.theme-light header {
+      border-bottom-color: rgba(15,118,110,0.18);
+    }
+    body.theme-light .card,
+    body.theme-light .metric-card,
+    body.theme-light .modal-card,
+    body.theme-light .login-card {
+      background: #ffffff;
+      border-color: rgba(15,118,110,0.18);
+      color: #10231f;
+    }
+    body.theme-light .flow-item,
+    body.theme-light .contact-item,
+    body.theme-light .bulk-list {
+      background: #f1f5f9;
+      border-color: rgba(15,118,110,0.18);
+    }
+    body.theme-light .form-group input,
+    body.theme-light .form-group textarea,
+    body.theme-light .form-group select {
+      background: #ffffff;
+      border-color: #cbd5e1;
+      color: #10231f;
+    }
+    body.theme-light .form-group input::placeholder,
+    body.theme-light .form-group textarea::placeholder {
+      color: #64748b;
+    }
+    body.theme-light .dica {
+      background: #e7f7ef;
+      border-left-color: #25d366;
+      color: #10231f;
+    }
+    body.theme-light .btn-primary {
+      background: #128c7e;
+      color: #fff;
+    }
+    body.theme-light .btn-success {
+      background: #25d366;
+      color: #073b33;
+    }
+    body.theme-light .contact-phone,
+    body.theme-light .link-groq,
+    body.theme-light .link-footer {
+      color: #128c7e;
+    }
+    body.theme-light .metric-label {
+      color: #64748b;
+    }
+    body.theme-light .metric-note {
+      color: #334155;
+    }
+    body.theme-light .theme-toggle {
+      background: rgba(255,255,255,0.14);
+      border-color: rgba(255,255,255,0.2);
+      color: #fff;
+    }
     
     @media (max-width: 600px) {
       header h1 { font-size: 1.4rem; }
@@ -497,6 +583,7 @@
       </div>
 
       <div class="sidebar-footer">
+        <button class="btn btn-small theme-toggle" id="toggleTheme" type="button">Tema claro</button>
         <a href="https://wa.me/557185279135" target="_blank" class="btn btn-success btn-small" style="text-decoration:none; text-align:center;">Fale Comigo</a>
         <button class="btn btn-small" id="btnSair" style="background:#475569; color:white;">Sair</button>
       </div>
@@ -978,6 +1065,7 @@
     const $ = id => document.getElementById(id);
     const appShell = $('app-shell');
     const toggleSidebar = $('toggleSidebar');
+    const toggleTheme = $('toggleTheme');
     window.dashboardState = {
       whatsappConectado: false,
       contatos: 0,
@@ -987,6 +1075,25 @@
       botSilenciado: false,
       enviosSilenciados: false
     };
+
+    function aplicarTema(tema) {
+      const modoClaro = tema === 'light';
+      document.body.classList.toggle('theme-light', modoClaro);
+      if (toggleTheme) {
+        toggleTheme.textContent = modoClaro ? 'Tema escuro' : 'Tema claro';
+        toggleTheme.title = modoClaro ? 'Alternar para tema escuro' : 'Alternar para tema claro';
+      }
+    }
+
+    const temaSalvo = localStorage.getItem('painelTema') || 'dark';
+    aplicarTema(temaSalvo);
+    if (toggleTheme) {
+      toggleTheme.addEventListener('click', () => {
+        const proximoTema = document.body.classList.contains('theme-light') ? 'dark' : 'light';
+        localStorage.setItem('painelTema', proximoTema);
+        aplicarTema(proximoTema);
+      });
+    }
 
     if (toggleSidebar && appShell) {
       toggleSidebar.addEventListener('click', () => {
