@@ -2108,10 +2108,27 @@
       });
     }
 
-    async function salvarArquivoAgendamento() {
+    function formatarTamanhoArquivo(bytes) {
+      if (!Number.isFinite(bytes) || bytes <= 0) return "0 KB";
+      if (bytes < 1024 * 1024) return `${Math.ceil(bytes / 1024)} KB`;
+      return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    }
+
+    function validarArquivoAgendamento(file) {
+      if (!file) return;
+      const limiteBytes = 20 * 1024 * 1024;
+      if (file.size > limiteBytes) {
+        throw new Error(`Arquivo muito grande (${formatarTamanhoArquivo(file.size)}). Use arquivo de até 20 MB.`);
+      }
+    }
+
+    async function salvarArquivoAgendamento(statusEl = null) {
       const file = agArquivo.files && agArquivo.files[0];
       if (!file) return null;
+      validarArquivoAgendamento(file);
+      if (statusEl) statusEl.textContent = `Preparando arquivo ${file.name} (${formatarTamanhoArquivo(file.size)})...`;
       const dataUrl = await arquivoParaDataUrl(file);
+      if (statusEl) statusEl.textContent = "Enviando arquivo para a VPS...";
       const resposta = await fetch("/api/upload/agendamento", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -2119,6 +2136,7 @@
       });
       const json = await resposta.json();
       if (!json.ok) throw new Error(json.erro || "Erro ao salvar arquivo");
+      if (statusEl) statusEl.textContent = `Arquivo salvo: ${json.arquivo.nomeOriginal}. Criando agendamentos...`;
       return json.arquivo;
     }
 
@@ -2152,10 +2170,10 @@
       };
     }
 
-    async function montarArquivoCompartilhado() {
+    async function montarArquivoCompartilhado(statusEl = null) {
       const file = agArquivo.files && agArquivo.files[0];
       if (!file) return null;
-      return salvarArquivoAgendamento();
+      return salvarArquivoAgendamento(statusEl);
     }
 
     async function enviarWhatsApp(agendamento) {
@@ -2387,10 +2405,12 @@
       if (!confirm(`Criar agendamento para ${contatosSelecionados.length} contato(s)?`)) return;
 
       salvarMassa.disabled = true;
+      salvarMassa.textContent = "Salvando...";
       massaStatus.textContent = "Salvando agendamento em massa...";
       try {
-        const arquivo = await montarArquivoCompartilhado();
+        const arquivo = await montarArquivoCompartilhado(massaStatus);
         const dataTimestamp = Timestamp.fromDate(new Date(dataHora));
+        massaStatus.textContent = `Criando ${contatosSelecionados.length} agendamento(s)...`;
         for (let i = 0; i < contatosSelecionados.length; i++) {
           const contato = contatosSelecionados[i];
           massaStatus.textContent = `Agendando ${i + 1}/${contatosSelecionados.length}: ${contato.nome}`;
@@ -2418,6 +2438,7 @@
         massaStatus.textContent = `Erro ao agendar em massa: ${error.message || "falha desconhecida"}`;
       } finally {
         salvarMassa.disabled = false;
+        salvarMassa.textContent = "Salvar agendamento em massa";
       }
     });
     enviarMassa.addEventListener("click", async () => {
@@ -2449,9 +2470,10 @@
       if (!confirm(`Enviar para ${contatosSelecionados.length} contato(s) com intervalo de ${intervalo} segundos?`)) return;
 
       enviarMassa.disabled = true;
+      enviarMassa.textContent = "Enviando...";
       massaStatus.textContent = "Preparando envio em massa...";
       try {
-        const arquivo = await montarArquivoCompartilhado();
+        const arquivo = await montarArquivoCompartilhado(massaStatus);
         for (let i = 0; i < contatosSelecionados.length; i++) {
           const contato = contatosSelecionados[i];
           massaStatus.textContent = `Enviando ${i + 1}/${contatosSelecionados.length}: ${contato.nome}`;
@@ -2486,6 +2508,7 @@
         massaStatus.textContent = `Erro no envio em massa: ${error.message || "falha desconhecida"}`;
       } finally {
         enviarMassa.disabled = false;
+        enviarMassa.textContent = "Enviar em massa";
       }
     });
     listaAgendamentos.addEventListener("click", async (event) => {
