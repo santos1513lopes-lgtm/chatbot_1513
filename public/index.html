@@ -381,6 +381,29 @@
       flex-wrap: wrap;
       margin-top: 10px;
     }
+    .panel-section {
+      border: 1px solid rgba(148,163,184,0.18);
+      border-radius: 8px;
+      padding: 16px;
+      margin: 14px 0;
+      background: rgba(15,23,42,0.22);
+    }
+    .panel-section h3 {
+      font-size: 1rem;
+      margin: 0 0 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .panel-section .dica {
+      margin-top: 0;
+    }
+    .action-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
     .bulk-list {
       max-height: 220px;
       overflow: auto;
@@ -480,7 +503,8 @@
     }
     body.theme-light .flow-item,
     body.theme-light .contact-item,
-    body.theme-light .bulk-list {
+    body.theme-light .bulk-list,
+    body.theme-light .panel-section {
       background: #f1f5f9;
       border-color: rgba(15,118,110,0.18);
     }
@@ -919,32 +943,40 @@
         <p class="dica">
           Use para pedir nome, matrícula ou telefone, consultar uma lista CSV e responder com material, link, senha ou Pix.
         </p>
-        <div class="form-group">
-          <label for="condGatilhos">Gatilhos iniciais</label>
-          <input type="text" id="condGatilhos" placeholder="pegar material, meu material, boleto, 2 via">
+        <div class="panel-section">
+          <h3>1. Conversa e busca</h3>
+          <div class="grid-2">
+            <div class="form-group">
+              <label for="condGatilhos">Gatilhos iniciais</label>
+              <input type="text" id="condGatilhos" placeholder="pegar material, meu material, boleto, 2 via">
+            </div>
+            <div class="form-group">
+              <label for="condCamposBusca">Campos para buscar</label>
+              <input type="text" id="condCamposBusca" placeholder="nome, matricula, telefone">
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="condPergunta">Pergunta após o gatilho</label>
+            <textarea id="condPergunta" placeholder="Por favor, digite seu nome e sobrenome ou matrícula."></textarea>
+          </div>
+          <div class="grid-2">
+            <div class="form-group">
+              <label for="condRespostaOk">Resposta se encontrar</label>
+              <textarea id="condRespostaOk" placeholder="Encontrei seu cadastro, {nome}. Segue seu material: {link}"></textarea>
+            </div>
+            <div class="form-group">
+              <label for="condRespostaErro">Resposta se não encontrar</label>
+              <textarea id="condRespostaErro" placeholder="Não encontrei seu cadastro. Confira os dados e tente novamente."></textarea>
+            </div>
+          </div>
         </div>
-        <div class="form-group">
-          <label for="condPergunta">Pergunta após o gatilho</label>
-          <textarea id="condPergunta" placeholder="Por favor, digite seu nome e sobrenome ou matrícula."></textarea>
-        </div>
-        <div class="form-group">
-          <label for="condCamposBusca">Campos para buscar</label>
-          <input type="text" id="condCamposBusca" placeholder="nome, matricula, telefone">
-        </div>
-        <div class="form-group">
-          <label for="condRespostaOk">Resposta se encontrar</label>
-          <textarea id="condRespostaOk" placeholder="Encontrei seu cadastro, {nome}. Segue seu material: {link}"></textarea>
-        </div>
-        <div class="form-group">
-          <label for="condRespostaErro">Resposta se não encontrar</label>
-          <textarea id="condRespostaErro" placeholder="Não encontrei seu cadastro. Confira os dados e tente novamente."></textarea>
-        </div>
-        <div class="form-group">
-          <label for="condDadosCsv">Lista CSV ou nomes separados por vírgula</label>
-          <textarea id="condDadosCsv" style="min-height:170px;" placeholder="nome,matricula,material,link,senha,pix,arquivo&#10;João Nascimento,12345,Apostila,https://link.com,Senha: 1234,,apostila.pdf&#10;&#10;Ou simples: Ana Lopes, Josué Lopes, João Nascimento"></textarea>
-        </div>
-        <div class="card" style="margin:14px 0; padding:16px;">
-          <h2>Importar lista de alunos</h2>
+
+        <div class="panel-section">
+          <h3>2. Lista de alunos</h3>
+          <div class="form-group">
+            <label for="condDadosCsv">Lista CSV ou nomes separados por vírgula</label>
+            <textarea id="condDadosCsv" style="min-height:170px;" placeholder="nome,matricula,material,link,senha,pix,arquivo&#10;João Nascimento,12345,Apostila,https://link.com,Senha: 1234,,apostila.pdf&#10;&#10;Ou simples: Ana Lopes, Josué Lopes, João Nascimento"></textarea>
+          </div>
           <p class="dica">
             Use um CSV do Google Sheets com colunas como nome, matricula, telefone, material, link, senha e arquivo. Se a planilha tiver apenas uma coluna com nomes, o bot também consegue procurar por esses nomes.
           </p>
@@ -960,24 +992,35 @@
             <input type="checkbox" id="condCsvAnexar">
             <label for="condCsvAnexar">Acrescentar à lista atual em vez de substituir</label>
           </div>
-          <div class="schedule-actions">
+          <div class="action-row">
             <button class="btn btn-primary" id="importarCondCsvUrl">Importar link CSV</button>
             <button class="btn btn-success" id="importarCondCsvArquivo">Importar arquivo CSV</button>
           </div>
           <div id="statusImportarCondCsv" class="bulk-status"></div>
         </div>
-        <div class="schedule-actions" style="margin-bottom:14px;">
+
+        <div class="panel-section">
+          <h3>3. Edição rápida</h3>
+          <div class="action-row">
           <button class="btn btn-success" id="abrirCondItem">Adicionar aluno/material por formulário</button>
           <button class="btn btn-small" id="limparCondLista" style="background:#f59e0b; color:white;">Limpar lista mantendo cabeçalho</button>
           <button class="btn btn-small" id="restaurarCondPadrao" style="background:#475569; color:white;">Restaurar modelo padrão</button>
+          </div>
         </div>
-        <div class="form-group">
-          <label for="condArquivoUpload">Enviar arquivo do fluxo</label>
-          <input type="file" id="condArquivoUpload" accept="image/*,audio/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip,.jwpub">
+
+        <div class="panel-section">
+          <h3>4. Arquivos do fluxo</h3>
+          <div class="form-group">
+            <label for="condArquivoUpload">Enviar arquivo do fluxo</label>
+            <input type="file" id="condArquivoUpload" accept="image/*,audio/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip,.jwpub">
+          </div>
+          <button class="btn btn-success" id="enviarArquivoFluxo">Enviar arquivo para fluxos</button>
+          <div id="listaArquivosFluxo" class="bulk-status"></div>
         </div>
-        <button class="btn btn-success" id="enviarArquivoFluxo" style="margin-bottom:14px;">Enviar arquivo para fluxos</button>
-        <div id="listaArquivosFluxo" class="bulk-status"></div>
-        <button class="btn btn-primary" id="salvarCondicional">Salvar fluxo condicional</button>
+
+        <div class="action-row">
+          <button class="btn btn-primary" id="salvarCondicional">Salvar fluxo condicional</button>
+        </div>
       </div>
     </div>
 
