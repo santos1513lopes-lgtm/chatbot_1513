@@ -404,6 +404,25 @@
       flex-wrap: wrap;
       align-items: center;
     }
+    .control-strip {
+      display: grid;
+      grid-template-columns: minmax(180px, 1fr) auto auto;
+      gap: 12px;
+      align-items: center;
+      padding: 12px 16px;
+    }
+    .control-strip h2 {
+      margin: 0;
+      font-size: 1rem;
+    }
+    .control-strip .checkbox-group {
+      margin: 0;
+      white-space: nowrap;
+    }
+    .control-strip .bulk-status {
+      grid-column: 1 / -1;
+      margin-top: 0;
+    }
     .bulk-list {
       max-height: 220px;
       overflow: auto;
@@ -555,6 +574,13 @@
       .grid-2 { grid-template-columns: 1fr; }
       .dashboard-grid { grid-template-columns: 1fr; }
       .dashboard-panels { grid-template-columns: 1fr; }
+      .control-strip {
+        grid-template-columns: 1fr;
+        align-items: stretch;
+      }
+      .control-strip .checkbox-group {
+        white-space: normal;
+      }
     }
     @media (max-width: 820px) {
       .crm-layout { grid-template-columns: 1fr; }
@@ -805,16 +831,13 @@
 
     <!-- Aba Campanhas e Envios -->
     <div id="tab-agendamentos" class="tab-content">
-      <div class="card">
+      <div class="card control-strip">
         <h2>Controle de envios</h2>
         <div class="checkbox-group">
           <input type="checkbox" id="silenciarEnvios">
-          <label for="silenciarEnvios">Silenciar fluxo de envios</label>
+          <label for="silenciarEnvios">Pausar envios</label>
         </div>
-        <p class="dica">
-          Quando ativado, envios agendados, envio em massa e botão Enviar agora ficam pausados. O bot continua respondendo conversas normalmente.
-        </p>
-        <button class="btn btn-primary" id="salvarSilencioEnvios">Salvar controle de envios</button>
+        <button class="btn btn-primary" id="salvarSilencioEnvios">Salvar</button>
         <div id="statusSilencioEnvios" class="bulk-status"></div>
       </div>
 
