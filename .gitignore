@@ -19,3 +19,4 @@ uploads/**
 !uploads/fluxos/.gitkeep
 !uploads/agendamentos/
 !uploads/agendamentos/.gitkeep
+firebase-service-account.json
