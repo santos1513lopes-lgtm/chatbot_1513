@@ -12,6 +12,7 @@ const fs = require("fs");
 const QRCode = require("qrcode");
 const { Client, LocalAuth, MessageMedia } = require("whatsapp-web.js");
 const OpenAI = require("openai");
+const admin = require("firebase-admin");
 const { createSilencio } = require("./silencio_whatsapp");
 const silencio = createSilencio(__dirname);
 
@@ -20,12 +21,16 @@ const silencio = createSilencio(__dirname);
 // =====================================
 const PORT = 3000;
 const CONFIG_FILE = path.join(__dirname, "config.json");
+const FIREBASE_SERVICE_ACCOUNT_FILE = process.env.FIREBASE_SERVICE_ACCOUNT_FILE || path.join(__dirname, "firebase-service-account.json");
 const SKIP_WHATSAPP = process.env.SKIP_WHATSAPP === "1";
+const SKIP_SCHEDULER = process.env.SKIP_SCHEDULER === "1";
 
 let groqClient = null;
 let whatsappClient = null;
 let whatsappConectado = false;
 let io = null;
+let firestoreDb = null;
+let processandoAgendamentos = false;
 const estadosConversa = new Map();
 
 function normalizeText(value) {
@@ -34,6 +39,28 @@ function normalizeText(value) {
     .replace(/[\u0300-\u036f]/g, "")
     .trim()
     .toLowerCase();
+}
+
+function initFirebaseAdmin() {
+  if (firestoreDb) return firestoreDb;
+  if (!fs.existsSync(FIREBASE_SERVICE_ACCOUNT_FILE)) {
+    console.log("Firebase Admin não iniciado: firebase-service-account.json não encontrado.");
+    return null;
+  }
+  try {
+    const serviceAccount = JSON.parse(fs.readFileSync(FIREBASE_SERVICE_ACCOUNT_FILE, "utf8"));
+    if (!admin.apps.length) {
+      admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount),
+      });
+    }
+    firestoreDb = admin.firestore();
+    console.log("Firebase Admin conectado.");
+    return firestoreDb;
+  } catch (e) {
+    console.error("Erro ao iniciar Firebase Admin:", e.message || e);
+    return null;
+  }
 }
 
 function tokenMatch(registeredValue, queryValue) {
@@ -749,6 +776,106 @@ async function enviarSequenciaWhatsApp({ telefone, mensagem, arquivo, mensagemFi
   return sentMsg;
 }
 
+function normalizarAgendamentoFirestore(data) {
+  return {
+    telefone: String(data.telefone || "").replace(/\D/g, ""),
+    mensagem: String(data.mensagem || "").trim(),
+    mensagemFinal: String(data.mensagemFinal || "").trim(),
+    delayBlocos: data.delayBlocos || 0,
+    arquivo: data.arquivo || null,
+  };
+}
+
+async function reservarAgendamentoParaEnvio(ref) {
+  const db = initFirebaseAdmin();
+  if (!db) return null;
+  return db.runTransaction(async (transaction) => {
+    const snap = await transaction.get(ref);
+    if (!snap.exists) return null;
+    const data = snap.data() || {};
+    const dataHoraMs = data.dataHora && typeof data.dataHora.toMillis === "function"
+      ? data.dataHora.toMillis()
+      : 0;
+    if (data.status !== "pendente" || dataHoraMs > Date.now()) return null;
+    transaction.update(ref, {
+      status: "processando",
+      processadoPor: "vps",
+      atualizadoEm: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    return { id: ref.id, ...data };
+  });
+}
+
+async function processarAgendamentoFirestore(ref) {
+  const db = initFirebaseAdmin();
+  if (!db) return;
+  const reservado = await reservarAgendamentoParaEnvio(ref);
+  if (!reservado) return;
+
+  try {
+    const dados = normalizarAgendamentoFirestore(reservado);
+    if (!dados.telefone) throw new Error("Telefone obrigatório");
+    if (!dados.mensagem && !dados.arquivo && !dados.mensagemFinal) {
+      throw new Error("Mensagem, finalização ou arquivo obrigatório");
+    }
+    await enviarSequenciaWhatsApp(dados);
+    await ref.update({
+      status: "enviado",
+      enviadoEm: admin.firestore.FieldValue.serverTimestamp(),
+      atualizadoEm: admin.firestore.FieldValue.serverTimestamp(),
+      erro: admin.firestore.FieldValue.delete(),
+    });
+    console.log(`Agendamento enviado pela VPS: ${ref.id}`);
+  } catch (e) {
+    console.error(`Erro ao enviar agendamento ${ref.id}:`, e.message || e);
+    await ref.update({
+      status: "erro",
+      erro: e.message || "Erro ao enviar",
+      atualizadoEm: admin.firestore.FieldValue.serverTimestamp(),
+    });
+  }
+}
+
+async function processarAgendamentosVps() {
+  if (processandoAgendamentos) return;
+  if (!whatsappClient || !whatsappConectado) return;
+  config = loadConfig();
+  if (config.silenciarEnvios) return;
+  const db = initFirebaseAdmin();
+  if (!db) return;
+
+  processandoAgendamentos = true;
+  try {
+    const snapshot = await db.collection("agendamentos")
+      .where("status", "==", "pendente")
+      .get();
+
+    const vencidos = snapshot.docs.filter((docSnap) => {
+      const data = docSnap.data() || {};
+      return data.dataHora && typeof data.dataHora.toMillis === "function" && data.dataHora.toMillis() <= Date.now();
+    }).slice(0, 5);
+
+    for (const docSnap of vencidos) {
+      await processarAgendamentoFirestore(docSnap.ref);
+    }
+  } catch (e) {
+    console.error("Erro ao processar agendamentos pela VPS:", e.message || e);
+  } finally {
+    processandoAgendamentos = false;
+  }
+}
+
+function iniciarProcessadorAgendamentos() {
+  if (SKIP_SCHEDULER) {
+    console.log("Processador de agendamentos não iniciado porque SKIP_SCHEDULER=1.");
+    return;
+  }
+  if (!initFirebaseAdmin()) return;
+  setInterval(processarAgendamentosVps, 30000);
+  setTimeout(processarAgendamentosVps, 10000);
+  console.log("Processador de agendamentos da VPS iniciado.");
+}
+
 async function respostaPorFluxo(texto) {
   config = loadConfig();
   const txt = texto.trim().toLowerCase();
@@ -958,4 +1085,5 @@ io.on("connection", (socket) => {
   } else {
     initWhatsApp();
   }
+  iniciarProcessadorAgendamentos();
 });

@@ -2867,8 +2867,6 @@
         alert(error.message || "Não foi possível concluir a ação.");
       }
     });
-    setInterval(processarAgendadosVencidos, 30000);
-
     onAuthStateChanged(auth, (user) => {
       usuarioAtual = user;
       document.body.classList.toggle("authenticated", !!user);
