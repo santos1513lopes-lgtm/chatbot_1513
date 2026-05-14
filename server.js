@@ -31,6 +31,7 @@ let whatsappConectado = false;
 let io = null;
 let firestoreDb = null;
 let processandoAgendamentos = false;
+let reiniciandoWhatsApp = false;
 const estadosConversa = new Map();
 
 function normalizeText(value) {
@@ -70,6 +71,37 @@ function tokenMatch(registeredValue, queryValue) {
   const registeredInQuery = registeredTokens.every((token) => queryTokens.includes(token));
   const queryInRegistered = queryTokens.every((token) => registeredTokens.includes(token));
   return registeredInQuery || queryInRegistered;
+}
+
+function isPuppeteerProtocolError(error) {
+  const message = String((error && (error.message || error.stack)) || error || "");
+  return (
+    message.includes("ProtocolError") ||
+    message.includes("Execution context was destroyed") ||
+    message.includes("Runtime.callFunctionOn timed out")
+  );
+}
+
+async function reiniciarWhatsAppPorErro(motivo) {
+  if (reiniciandoWhatsApp) return;
+  reiniciandoWhatsApp = true;
+  console.error(`Reiniciando WhatsApp automaticamente: ${motivo}`);
+  whatsappConectado = false;
+  if (io) io.emit("status", { conectado: false, mensagem: "Reiniciando WhatsApp automaticamente..." });
+
+  try {
+    if (whatsappClient) {
+      await whatsappClient.destroy();
+    }
+  } catch (e) {
+    console.error("Erro ao destruir cliente WhatsApp antes de reiniciar:", e.message || e);
+  }
+
+  whatsappClient = null;
+  setTimeout(() => {
+    reiniciandoWhatsApp = false;
+    initWhatsApp(true);
+  }, 5000);
 }
 
 function parseCsvLine(line) {
@@ -274,7 +306,7 @@ async function sendConditionalRecordResponse({ msg, chatId, flow, row, typing })
   let r = null;
   if (arquivoResolvido.fullPath) {
     const media = MessageMedia.fromFilePath(arquivoResolvido.fullPath);
-    r = await whatsappClient.sendMessage(chatId, media, resposta ? { caption: resposta } : undefined);
+    r = await enviarMensagemWhatsApp(chatId, media, resposta ? { caption: resposta } : undefined);
   } else {
     r = await msg.reply(resposta || "Encontrei seu cadastro.");
   }
@@ -282,7 +314,7 @@ async function sendConditionalRecordResponse({ msg, chatId, flow, row, typing })
 
   if (mensagemFinal) {
     await delay(1000);
-    const finalMsg = await whatsappClient.sendMessage(chatId, mensagemFinal);
+    const finalMsg = await enviarMensagemWhatsApp(chatId, mensagemFinal);
     silencio.registrarMensagemDoBot(finalMsg);
   }
 }
@@ -688,6 +720,7 @@ function initWhatsApp(force = false) {
     puppeteer: {
       headless: true,
       timeout: 120000, // 2 min para o navegador iniciar
+      protocolTimeout: 300000, // 5 min para envios com arquivo em VPS lenta
       args: [
         "--no-sandbox",
         "--disable-setuid-sandbox",
@@ -715,6 +748,7 @@ function initWhatsApp(force = false) {
 
   whatsappClient.on("ready", () => {
     whatsappConectado = true;
+    reiniciandoWhatsApp = false;
     io.emit("qr", null); // limpa QR
     io.emit("status", { conectado: true, mensagem: "WhatsApp conectado!" });
     console.log("✅ WhatsApp conectado.");
@@ -723,6 +757,9 @@ function initWhatsApp(force = false) {
   whatsappClient.on("disconnected", () => {
     whatsappConectado = false;
     io.emit("status", { conectado: false, mensagem: "WhatsApp desconectado" });
+    setTimeout(() => {
+      if (!whatsappConectado && !reiniciandoWhatsApp) initWhatsApp(true);
+    }, 10000);
   });
 
   whatsappClient.on("auth_failure", (msg) => {
@@ -744,6 +781,20 @@ function initWhatsApp(force = false) {
 // =====================================
 const delay = (ms) => new Promise((r) => setTimeout(r, ms));
 
+async function enviarMensagemWhatsApp(chatId, conteudo, opcoes) {
+  if (!whatsappClient || !whatsappConectado) {
+    throw new Error("WhatsApp não conectado");
+  }
+  try {
+    return await whatsappClient.sendMessage(chatId, conteudo, opcoes);
+  } catch (e) {
+    if (isPuppeteerProtocolError(e)) {
+      reiniciarWhatsAppPorErro(e.message || "erro de protocolo do WhatsApp Web");
+    }
+    throw e;
+  }
+}
+
 async function enviarSequenciaWhatsApp({ telefone, mensagem, arquivo, mensagemFinal, delayBlocos }) {
   const chatId = `${telefone}@c.us`;
   const intervaloMs = Math.max(0, Math.min(120, Number(delayBlocos) || 0)) * 1000;
@@ -759,16 +810,16 @@ async function enviarSequenciaWhatsApp({ telefone, mensagem, arquivo, mensagemFi
       fs.readFileSync(fullPath).toString("base64"),
       arquivo.nomeOriginal || path.basename(fullPath)
     );
-    sentMsg = await whatsappClient.sendMessage(chatId, media, mensagem ? { caption: mensagem } : undefined);
+    sentMsg = await enviarMensagemWhatsApp(chatId, media, mensagem ? { caption: mensagem } : undefined);
   } else if (mensagem) {
-    sentMsg = await whatsappClient.sendMessage(chatId, mensagem);
+    sentMsg = await enviarMensagemWhatsApp(chatId, mensagem);
   }
 
   if (sentMsg) silencio.registrarMensagemDoBot(sentMsg);
 
   if (mensagemFinal) {
     if (sentMsg && intervaloMs > 0) await delay(intervaloMs);
-    const finalMsg = await whatsappClient.sendMessage(chatId, mensagemFinal);
+    const finalMsg = await enviarMensagemWhatsApp(chatId, mensagemFinal);
     silencio.registrarMensagemDoBot(finalMsg);
     sentMsg = finalMsg;
   }
@@ -836,6 +887,28 @@ async function processarAgendamentoFirestore(ref) {
   }
 }
 
+async function destravarAgendamentosAntigos(db) {
+  const limiteMs = Date.now() - (10 * 60 * 1000);
+  const snapshot = await db.collection("agendamentos")
+    .where("status", "in", ["processando", "enviando"])
+    .get();
+
+  for (const docSnap of snapshot.docs) {
+    const data = docSnap.data() || {};
+    const atualizadoMs = data.atualizadoEm && typeof data.atualizadoEm.toMillis === "function"
+      ? data.atualizadoEm.toMillis()
+      : 0;
+    if (atualizadoMs && atualizadoMs <= limiteMs) {
+      await docSnap.ref.update({
+        status: "pendente",
+        erro: "Agendamento destravado automaticamente para nova tentativa.",
+        atualizadoEm: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      console.log(`Agendamento destravado para nova tentativa: ${docSnap.id}`);
+    }
+  }
+}
+
 async function processarAgendamentosVps() {
   if (processandoAgendamentos) return;
   if (!whatsappClient || !whatsappConectado) return;
@@ -846,6 +919,8 @@ async function processarAgendamentosVps() {
 
   processandoAgendamentos = true;
   try {
+    await destravarAgendamentosAntigos(db);
+
     const snapshot = await db.collection("agendamentos")
       .where("status", "==", "pendente")
       .get();
@@ -969,7 +1044,7 @@ async function handleMessage(msg) {
           mensagem: texto,
           chatid: chatId,
         });
-        const sent = await whatsappClient.sendMessage(`${numeroAtendente}@c.us`, aviso);
+        const sent = await enviarMensagemWhatsApp(`${numeroAtendente}@c.us`, aviso);
         silencio.registrarMensagemDoBot(sent);
       }
       return;
